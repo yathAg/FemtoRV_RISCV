@@ -15,6 +15,8 @@ module SOC (
   reg [31:0] PC ; //Program counter
   reg [31:0] instr;
 
+
+ //instruction memory
   initial
     begin
       PC = 0;
@@ -50,7 +52,7 @@ module SOC (
 
     end
 
-  // RV32I
+  // RV32I instruction set
   wire is_LUI     =  (instr[6:0] == 7'b0110111); // rd <- Uimm
   wire is_AUIPC   =  (instr[6:0] == 7'b0010111); // rd <- PC + Uimm
   wire is_JAL     =  (instr[6:0] == 7'b1101111); // rd <- PC+4; PC<-PC+Jimm
@@ -81,8 +83,12 @@ module SOC (
 
   // The registers bank
   reg [15:0] RegisterBank [0:31];
+
+  //alu registers
   reg [31:0] rs1;
   reg [31:0] rs2;
+
+  //decode variables
   wire [31:0] writeback_Data;
   wire        writeback_En;
   assign writeback_Data = 0; // for now
