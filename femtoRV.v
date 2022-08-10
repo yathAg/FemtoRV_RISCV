@@ -9,7 +9,7 @@ module SOC (
 );
 
   wire clk;    // internal clock
-  wire resetn; // internal reset signal, goes low on reset
+  wire reset; // internal reset signal, goes low on reset
 
   reg [31:0] MEM[0:255];
   reg [31:0] PC ; //Program counter
@@ -111,7 +111,7 @@ module SOC (
   reg [1:0] state = FETCH_INSTR;
 
   always @(posedge clk) begin
-    if(!resetn) begin
+    if(reset) begin
       PC <= 0;
       state <= FETCH_INSTR;
       instr <= 32'b0000000_00000_00000_000_00000_0110011; // NOP
@@ -186,7 +186,7 @@ module SOC (
       .CLK(CLK),
       .RESET(RESET),
       .clk(clk),
-      .resetn(resetn)
+      .reset(reset)
     );
 
   assign TXD  = 1'b0; // not used for now

@@ -5,7 +5,7 @@ module Clockworks
    input  RESET, // reset pin of the board
    output clk,   // (optionally divided) clock for the design.
                  // divided if SLOW is different from zero.
-   output resetn // (optionally timed) negative reset for the design
+   output reset // (optionally timed) negative reset for the design
 );
   parameter SLOW=0;
 
@@ -23,7 +23,7 @@ module Clockworks
       end
 
       assign clk = slow_CLK[slow_bit];
-      assign resetn = !RESET;
+      assign reset = RESET;
   endgenerate
 
 endmodule
