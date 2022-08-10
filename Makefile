@@ -2,7 +2,7 @@ TOP := SOC
 TARGET := arty_35
 
 current_dir := ${CURDIR}
-SOURCES := ${current_dir}/${file}.v
+SOURCES := ${current_dir}/${file}
 XDC := ${current_dir}/arty.xdc
 
 BUILDDIR := ${current_dir}/build
@@ -71,7 +71,7 @@ clean:
 	rm -rf ${BUILDDIR}
 
 bench:
-	iverilog -DBENCH -DBOARD_FREQ=10 bench_iverilog.v ${file}.v
+	iverilog -DBENCH -DBOARD_FREQ=10 bench_iverilog.v ${file}
 
 run_bench:
 	vvp a.out
