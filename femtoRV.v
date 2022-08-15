@@ -129,12 +129,12 @@ module SOC (
   reg [31:0] src2_value;
   reg [31:0] alu_out;
 
-  wire [31:0] sltu_rslt ;
-  wire [31:0] sltiu_rslt ;
+  reg [31:0] sltu_rslt ;
+  reg [31:0] sltiu_rslt ;
 
-  wire [63:0] sext_src1 ;
-  wire [63:0] sra_rslt ;
-  wire [63:0] srai_rslt ;
+  reg [63:0] sext_src1 ;
+  reg [63:0] sra_rslt ;
+  reg [63:0] srai_rslt ;
 
   //alu
   always @ ( * ) begin
@@ -160,8 +160,8 @@ module SOC (
 
       is_add  : alu_out = src1_value + src2_value;
       is_sub  : alu_out = src1_value - src2_value;
-      is_sll  : alu_out = src1_value << rs2[5:0];
-      is_slt  : alu_out = (( src1_value[31] == src2_value[31] ) ? sltu_rslt : {31'b0, $src1_value[31]} ) ;
+      is_sll  : alu_out = src1_value << rs2[4:0];
+      is_slt  : alu_out = (( src1_value[31] == src2_value[31] ) ? sltu_rslt : {31'b0, src1_value[31]} ) ;
       is_sltu : alu_out = sltu_rslt;
       is_xor  : alu_out = src1_value ^ src2_value;
       is_srl  : alu_out = src1_value >> src2_value[5:0] ;
