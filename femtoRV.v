@@ -129,15 +129,22 @@ module SOC (
   reg [31:0] src2_value;
   reg [31:0] alu_out;
 
-  wire [31:0] sltu_rslt = {31'b0, src1_value < src2_value};
-  wire [31:0] sltiu_rslt = {31'b0, src1_value < I_imm};
+  wire [31:0] sltu_rslt ;
+  wire [31:0] sltiu_rslt ;
 
-  wire [63:0] sext_src1 = { {32{src1_value[31]}},src1_value};
-  wire [63:0] sra_rslt = sext_src1 >> src2_value[4:0];
-  wire [63:0] srai_rslt = sext_src1 >> I_imm[4:0];
-  
+  wire [63:0] sext_src1 ;
+  wire [63:0] sra_rslt ;
+  wire [63:0] srai_rslt ;
+
   //alu
   always @ ( * ) begin
+
+    sltu_rslt = {31'b0, src1_value < src2_value};
+    sltiu_rslt = {31'b0, src1_value < I_imm};
+
+    sext_src1 = { {32{src1_value[31]}},src1_value};
+    sra_rslt = sext_src1 >> src2_value[4:0];
+    srai_rslt = sext_src1 >> I_imm[4:0];
 
     case (dec_bits)
 
