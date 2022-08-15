@@ -1,1 +1,1 @@
-# femtorv-tutorial
+# Femtorv Artix 35T
