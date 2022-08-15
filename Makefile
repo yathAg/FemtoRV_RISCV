@@ -69,6 +69,7 @@ download: ${BOARD_BUILDDIR}/${TOP}.bit
 
 clean:
 	rm -rf ${BUILDDIR}
+	rm -rf ./a.out
 
 bench:
 	iverilog -DBENCH -DBOARD_FREQ=10 bench_iverilog.v ${file}
