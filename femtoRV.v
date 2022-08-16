@@ -15,40 +15,24 @@ module SOC (
   reg [31:0] PC ; //Program counter
   reg [31:0] instr;
 
+  `include "riscv_assembly.v"
 
  //instruction memory
   initial begin
     PC = 0;
-
-    // add x0, x0, x0
-    //                   src2_value   src1_value  add  rd   ALUREG
-    instr = 32'b0000000_00000_00000_000_00000_0110011;
-    // add x1, x0, x0
-    //                    src2_value   src1_value  add  rd  ALUREG
-    MEM[0] = 32'b0000000_00000_00000_000_00001_0110011;
-    // addi x1, x1, 1
-    //             imm         src1_value  add  rd   ALUIMM
-    MEM[1] = 32'b000000000001_00001_000_00001_0010011;
-    // addi x1, x1, 1
-    //             imm         src1_value  add  rd   ALUIMM
-    MEM[2] = 32'b000000000001_00001_000_00001_0010011;
-    // addi x1, x1, 1
-    //             imm         src1_value  add  rd   ALUIMM
-    MEM[3] = 32'b000000000001_00001_000_00001_0010011;
-    // addi x1, x1, 1
-    //             imm         src1_value  add  rd   ALUIMM
-    MEM[4] = 32'b000000000001_00001_000_00001_0010011;
-    // lw x2,0(x1)
-    //             imm         src1_value   w   rd   LOAD
-    MEM[5] = 32'b000000000000_00001_010_00010_0000011;
-    // sw x2,0(x1)
-    //             imm   src2_value   src1_value   w   imm  STORE
-    MEM[6] = 32'b000000_00001_00010_010_00000_0100011;
-
-    // ebreak
-    //                                        SYSTEM
-    MEM[7] = 32'b000000000001_00000_000_00000_1110011;
-
+    ADD(x0,x0,x0);
+    ADD(x1,x0,x0);
+    ADDI(x1,x1,1);
+    ADDI(x1,x1,1);
+    ADDI(x1,x1,1);
+    ADDI(x1,x1,1);
+    ADD(x2,x1,x0);
+    ADD(x3,x1,x2);
+    SRLI(x3,x3,3);
+    SLLI(x3,x3,31);
+    SRAI(x3,x3,5);
+    SRLI(x1,x3,26);
+    EBREAK();
   end
 
   // RV32 Base opcode defination
@@ -221,7 +205,7 @@ module SOC (
 
       case(state)
         FETCH_INSTR: begin
-          instr <= MEM[PC];
+          instr <= MEM[PC[31:2]];
           state <= FETCH_REGS;
         end
 
@@ -233,7 +217,7 @@ module SOC (
 
         EXECUTE: begin
           if (!is_SYSTEM) begin
-            PC <= PC +1;
+            PC <= PC + 4;
           end
           state <= FETCH_INSTR;
 
