@@ -51,18 +51,22 @@ module SOC (
 
   end
 
-  // RV32I instruction set
-  wire is_LUI     =  (instr[6:0] == 7'b0110111); // rd <- Uimm
-  wire is_AUIPC   =  (instr[6:0] == 7'b0010111); // rd <- PC + Uimm
-  wire is_JAL     =  (instr[6:0] == 7'b1101111); // rd <- PC+4; PC<-PC+Jimm
-  wire is_JALR    =  (instr[6:0] == 7'b1100111); // rd <- PC+4; PC<-src1_value+Iimm
-  wire is_BRANCH  =  (instr[6:0] == 7'b1100011); // if(src1_value OP src2_value) PC<-PC+Bimm
+  // RV32 Base opcode defination
   wire is_LOAD    =  (instr[6:0] == 7'b0000011); // rd <- mem[src1_value+Iimm]
   wire is_STORE   =  (instr[6:0] == 7'b0100011); // mem[src1_value+Simm] <- src2_value
-  wire is_ALUI    =  (instr[6:0] == 7'b0010011); // rd <- src1_value OP Iimm
-  wire is_ALUR    =  (instr[6:0] == 7'b0110011); // rd <- src1_value OP src2_value
+  wire is_BRANCH  =  (instr[6:0] == 7'b1100011); // if(src1_value OP src2_value) PC<-PC+Bimm
+
+  wire is_JALR    =  (instr[6:0] == 7'b1100111); // rd <- PC+4; PC<-src1_value+Iimm
+
   wire is_FENCE   =  (instr[6:0] == 7'b0001111);
+  wire is_JAL     =  (instr[6:0] == 7'b1101111); // rd <- PC+4; PC<-PC+Jimm
+
+  wire is_OPIM    =  (instr[6:0] == 7'b0010011); // rd <- src1_value OP Iimm
+  wire is_OP      =  (instr[6:0] == 7'b0110011); // rd <- src1_value OP src2_value
   wire is_SYSTEM  =  (instr[6:0] == 7'b1110011); // special
+
+  wire is_AUIPC   =  (instr[6:0] == 7'b0010111); // rd <- PC + Uimm
+  wire is_LUI     =  (instr[6:0] == 7'b0110111); // rd <- Uimm
 
   // The 5 immediate formats
   wire [31:0] I_imm = {{21{instr[31]}}, instr[30:20]  };
@@ -71,21 +75,17 @@ module SOC (
   wire [31:0] U_imm = {    instr[31],   instr[30:12], {12{1'b0}}  };
   wire [31:0] J_imm = {{12{instr[31]}}, instr[19:12], instr[20]    , instr[30:21],1'b0};
 
-  // Source and destination registers
+ // instruction fields
   wire [4:0] rs1 = instr[19:15];
   wire [4:0] rs2 = instr[24:20];
   wire [4:0] rd  = instr[11:7];
 
-  // function codes
   wire [2:0] funct3 = instr[14:12];
   wire [6:0] funct7 = instr[31:25];
   wire [6:0] opcode = instr[6:0];
 
-  // The registers bank
-  reg [15:0] RegisterBank [0:31];
-
-
   //instruction decoder
+  //RISCV32I base Instruction set
 
   wire dec_bits ={instr[30],funct3,opcode};
 
@@ -124,10 +124,21 @@ module SOC (
   wire is_or    =  11'b0_110_0110011;
   wire is_and   =  11'b0_111_0110011;
 
+  //wire is_fence    =  11'b0_111_0110011;
+  //wire is_ecall    =  11'b0_111_0110011;
+  //wire is_ebreak   =  11'b0_111_0110011;
+
+
+  // The registers bank
+  reg [15:0] RegisterBank [0:31];
+
   //alu registers
   reg [31:0] src1_value;
   reg [31:0] src2_value;
   reg [31:0] alu_out;
+
+  wire [31:0] writeback_data;
+  wire        writeback_en;
 
   reg [31:0] sltu_rslt ;
   reg [31:0] sltiu_rslt ;
@@ -136,7 +147,7 @@ module SOC (
   reg [63:0] sra_rslt ;
   reg [63:0] srai_rslt ;
 
-  //alu
+  // ALU
   always @ ( * ) begin
 
     sltu_rslt = {31'b0, src1_value < src2_value};
@@ -175,13 +186,6 @@ module SOC (
   end
 
 
-
-  //decode variables
-  wire [31:0] writeback_Data;
-  wire        writeback_En;
-  assign writeback_Data = 0; // for now
-  assign writeback_En = 0;   // for now
-
  `ifdef BENCH
     integer i;
     initial begin
@@ -198,17 +202,21 @@ module SOC (
   localparam  EXECUTE     = 2;
   reg [1:0] state = FETCH_INSTR;
 
+  assign writeback_data = alu_out;
+  assign writeback_en = (state == EXECUTE && (is_OP || is_OPIM));
+
+
   always @(posedge clk) begin
     if(reset) begin
       PC <= 0;
       state <= FETCH_INSTR;
-      instr <= 32'b0000000_00000_00000_000_00000_0110011; // NOP
+      //instr <= 32'b0000000_00000_00000_000_00000_0110011; // NOP
     end
 
     else begin
-      if(writeback_En && rd != 0)
+      if(writeback_en && rd != 0)
       begin
-        RegisterBank[rd] <= writeback_Data;
+        RegisterBank[rd] <= writeback_data;
       end
 
       case(state)
@@ -237,18 +245,18 @@ module SOC (
     end
   end
 
-  assign LEDS = is_SYSTEM ? 31 : {PC[0],is_ALUR,is_ALUI,is_STORE};
+  assign LEDS = is_SYSTEM ? 31 : {PC[0],is_OP,is_OPIM,is_STORE};
 
   `ifdef BENCH
     always @(posedge clk)
       if(state == FETCH_REGS) begin
         $display("PC=%0d",PC);
         case (1'b1)
-          is_ALUR: $display(
+          is_OP: $display(
             "ALUreg rd=%d src1_value=%d src2_value=%d funct3=%b",
             rd, rs1, rs2, funct3 );
 
-          is_ALUI: $display(
+          is_OPIM: $display(
           	"ALUimm rd=%d src1_value=%d imm=%0d funct3=%b",
             rd, rs1, I_imm, funct3);
 
