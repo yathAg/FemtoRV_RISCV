@@ -6,7 +6,10 @@ module SOC (
     output [3:0] LEDS, // system LEDs
     input  RXD,        // UART receive
     output TXD         // UART transmit
-);
+  );
+
+  reg [4:0] leds;
+  assign LEDS = leds;
 
   wire clk;    // internal clock
   wire reset; // internal reset signal, goes low on reset
@@ -71,47 +74,45 @@ module SOC (
   //instruction decoder
   //RISCV32I base Instruction set
 
-  wire dec_bits ={instr[30],funct3,opcode};
+  wire [10:0] dec_bits = {instr[30],funct3,opcode};
 
-  wire is_lui   =  11'bx_xxx_0110111;
-  wire is_auipc =  11'bx_xxx_0010111;
-  wire is_jal   =  11'bx_xxx_1101111;
+  wire [10:0] is_lui   =  11'bx_xxx_0110111;
+  wire [10:0] is_auipc =  11'bx_xxx_0010111;
+  wire [10:0] is_jal   =  11'bx_xxx_1101111;
 
-  wire is_jalr  =  11'bx_000_1100111;
-  wire is_beq   =  11'bx_000_1100011;
-  wire is_bne   =  11'bx_001_1100011;
-  wire is_blt   =  11'bx_100_1100011;
-  wire is_bge   =  11'bx_101_1100011;
-  wire is_bltu  =  11'bx_110_1100011;
-  wire is_bgeu  =  11'bx_111_1100011;
+  wire [10:0] is_jalr  =  11'bx_000_1100111;
+  wire [10:0] is_beq   =  11'bx_000_1100011;
+  wire [10:0] is_bne   =  11'bx_001_1100011;
+  wire [10:0] is_blt   =  11'bx_100_1100011;
+  wire [10:0] is_bge   =  11'bx_101_1100011;
+  wire [10:0] is_bltu  =  11'bx_110_1100011;
+  wire [10:0] is_bgeu  =  11'bx_111_1100011;
 
-  wire is_load  =  11'bx_xxx_0000011;
+  wire [10:0] is_load  =  11'bx_xxx_0000011;
+  wire [10:0] is_addi  =  11'bx_000_0010011;
+  wire [10:0] is_slti  =  11'bx_010_0010011;
+  wire [10:0] is_sltiu =  11'bx_011_0010011;
+  wire [10:0] is_xori  =  11'bx_100_0010011;
+  wire [10:0] is_ori   =  11'bx_110_0010011;
+  wire [10:0] is_andi  =  11'bx_111_0010011;
 
-  wire is_addi  =  11'bx_000_0010011;
-  wire is_slti  =  11'bx_010_0010011;
-  wire is_sltiu =  11'bx_011_0010011;
-  wire is_xori  =  11'bx_100_0010011;
-  wire is_ori   =  11'bx_110_0010011;
-  wire is_andi  =  11'bx_111_0010011;
+  wire [10:0] is_slli  =  11'b0_001_0010011;
+  wire [10:0] is_srli  =  11'b0_101_0010011;
+  wire [10:0] is_srai  =  11'b1_101_0010011;
+  wire [10:0] is_add   =  11'b0_000_0110011;
+  wire [10:0] is_sub   =  11'b1_000_0110011;
+  wire [10:0] is_sll   =  11'b0_001_0110011;
+  wire [10:0] is_slt   =  11'b0_010_0110011;
+  wire [10:0] is_sltu  =  11'b0_011_0110011;
+  wire [10:0] is_xor   =  11'b0_100_0110011;
+  wire [10:0] is_srl   =  11'b0_101_0110011;
+  wire [10:0] is_sra   =  11'b1_101_0110011;
+  wire [10:0] is_or    =  11'b0_110_0110011;
+  wire [10:0] is_and   =  11'b0_111_0110011;
 
-  wire is_slli  =  11'b0_001_0010011;
-  wire is_srli  =  11'b0_101_0010011;
-  wire is_srai  =  11'b1_101_0010011;
-  wire is_add   =  11'b0_000_0110011;
-  wire is_sub   =  11'b1_000_0110011;
-  wire is_sll   =  11'b0_001_0110011;
-  wire is_slt   =  11'b0_010_0110011;
-  wire is_sltu  =  11'b0_011_0110011;
-  wire is_xor   =  11'b0_100_0110011;
-  wire is_srl   =  11'b0_101_0110011;
-  wire is_sra   =  11'b1_101_0110011;
-  wire is_or    =  11'b0_110_0110011;
-  wire is_and   =  11'b0_111_0110011;
-
-  //wire is_fence    =  11'b0_111_0110011;
-  //wire is_ecall    =  11'b0_111_0110011;
-  //wire is_ebreak   =  11'b0_111_0110011;
-
+  wire [10:0] is_fence    =  11'b0_111_0110011;
+  wire [10:0] is_ecall    =  11'b0_111_0110011;
+  wire [10:0] is_ebreak   =  11'b0_111_0110011;
 
   // The registers bank
   reg [15:0] RegisterBank [0:31];
@@ -141,7 +142,7 @@ module SOC (
     sra_rslt = sext_src1 >> src2_value[4:0];
     srai_rslt = sext_src1 >> I_imm[4:0];
 
-    case (dec_bits)
+    casex (dec_bits)
 
       is_addi : alu_out = src1_value +  I_imm;
       is_slti : alu_out = (( src1_value[31]==I_imm[31] ) ? sltiu_rslt : {31'b0, src1_value[31]} );
@@ -201,6 +202,14 @@ module SOC (
       if(writeback_en && rd != 0)
       begin
         RegisterBank[rd] <= writeback_data;
+
+        if(rd == 1) begin
+  	      leds <= writeback_data;
+  	    end
+
+        `ifdef BENCH
+  	      $display("x%0d <= %b",rd,writeback_data);
+        `endif
       end
 
       case(state)
@@ -229,29 +238,68 @@ module SOC (
     end
   end
 
-  assign LEDS = is_SYSTEM ? 31 : {PC[0],is_OP,is_OPIM,is_STORE};
+  //assign LEDS = is_SYSTEM ? 31 : {PC[0],is_OP,is_OPIM,is_STORE};
 
   `ifdef BENCH
-    always @(posedge clk)
+    always @(*)
+      //dec_bits ={instr[30],funct3,opcode};
       if(state == FETCH_REGS) begin
+        $display("");
         $display("PC=%0d",PC);
+        $display("dec_bits=%b",dec_bits);
+
+        casex (dec_bits)
+
+          is_lui   : $display("lUI");
+          is_auipc : $display("AUIPC");
+          is_jal   : $display("JAL");
+
+          is_jalr  : $display("JALR");
+          is_beq   : $display("BEQ");
+          is_bne   : $display("BNE");
+          is_blt   : $display("BLT");
+          is_bge   : $display("BGE");
+          is_bltu  : $display("BLTU");
+          is_bgeu  : $display("BGEU");
+
+          is_load  : $display("LOAD");
+
+          is_addi  : $display("ADDI");
+          is_slti  : $display("SLTI");
+          is_sltiu : $display("SLTIU");
+          is_xori  : $display("XORI");
+          is_ori   : $display("ORI");
+          is_andi  : $display("ANDI");
+
+          is_slli  : $display("SLLI");
+          is_srli  : $display("SRLI");
+          is_srai  : $display("SRAI");
+          is_add   : $display("ADD");
+          is_sub   : $display("SUB");
+          is_sll   : $display("SLL");
+          is_slt   : $display("SLT");
+          is_sltu  : $display("SLTU");
+          is_xor   : $display("XOR");
+          is_srl   : $display("SRL");
+          is_sra   : $display("SRA");
+          is_or    : $display("OR");
+          is_and   : $display("AND");
+
+          is_fence    : $display("FENCE");
+          is_ecall    : $display("ECALL");
+          is_ebreak   : $display("EBREAK");
+
+        endcase
+
         case (1'b1)
           is_OP: $display(
-            "ALUreg rd=%d src1_value=%d src2_value=%d funct3=%b",
+            "is_OP rd=%d src1_value=%d src2_value=%d funct3=%b ",
             rd, rs1, rs2, funct3 );
 
           is_OPIM: $display(
-          	"ALUimm rd=%d src1_value=%d imm=%0d funct3=%b",
+          	"is_OPIM rd=%d src1_value=%d imm=%0d funct3=%b ",
             rd, rs1, I_imm, funct3);
 
-          is_BRANCH: $display("BRANCH");
-          is_JAL:    $display("JAL");
-          is_JALR:   $display("JALR");
-          is_AUIPC:  $display("AUIPC");
-          is_LUI:    $display("LUI");
-        	is_LOAD:   $display("LOAD");
-        	is_STORE:  $display("STORE");
-        	is_SYSTEM: $display("SYSTEM");
         endcase
 
         if(is_SYSTEM) begin
@@ -260,7 +308,7 @@ module SOC (
       end
   `endif
 
-  Clockworks #(.SLOW(24))
+  Clockworks #(.SLOW(19))
     CW(
       .CLK(CLK),
       .RESET(RESET),
