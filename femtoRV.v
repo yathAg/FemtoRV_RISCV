@@ -15,27 +15,37 @@ module SOC (
   wire reset; // internal reset signal, goes low on reset
 
   reg [31:0] MEM[0:255];
-  reg [31:0] PC ; //Program counter
+  reg [31:0] PC = 32'b0 ; //Program counter
   reg [31:0] instr;
 
   `include "riscv_assembly.v"
 
- //instruction memory
+ // Instruction memory
+
+  integer L0_= 4;
   initial begin
-    PC = 0;
-    ADD(x0,x0,x0);
-    ADD(x1,x0,x0);
-    ADDI(x1,x1,1);
-    ADDI(x1,x1,1);
-    ADDI(x1,x1,1);
-    ADDI(x1,x1,1);
-    ADD(x2,x1,x0);
-    ADD(x3,x1,x2);
-    SRLI(x3,x3,3);
-    SLLI(x3,x3,31);
-    SRAI(x3,x3,5);  //0100000,00101,00011,101,00011,0010011
-    SRLI(x1,x3,26);
-    EBREAK();
+  // ******************code here**************
+  // ADD(x0,x0,x0);
+  // ADD(x1,x0,x0);
+  // ADDI(x1,x1,1);
+  // ADDI(x1,x1,1);
+  // ADDI(x1,x1,1);
+  // ADDI(x1,x1,1);
+  // ADD(x2,x1,x0);
+  // ADD(x3,x1,x2);
+  // SRLI(x3,x3,3);
+  // SLLI(x3,x3,31);
+  // SRAI(x3,x3,5);
+  // SRLI(x1,x3,26);
+  // EBREAK();
+
+  ADD(x1,x0,x0);
+    Label(L0_);
+  ADDI(x1,x1,1);
+  JAL(x0,LabelRef(L0_));
+  EBREAK();
+  endASM();
+  // **************************************
   end
 
   // RV32 Base opcode defination
@@ -45,15 +55,15 @@ module SOC (
 
   wire is_JALR    =  (instr[6:0] == 7'b1100111); // rd <- PC+4; PC<-src1_value+Iimm
 
-  wire is_FENCE   =  (instr[6:0] == 7'b0001111);
+  // wire is_FENCE   =  (instr[6:0] == 7'b0001111);
   wire is_JAL     =  (instr[6:0] == 7'b1101111); // rd <- PC+4; PC<-PC+Jimm
 
   wire is_OPIM    =  (instr[6:0] == 7'b0010011); // rd <- src1_value OP Iimm
   wire is_OP      =  (instr[6:0] == 7'b0110011); // rd <- src1_value OP src2_value
   wire is_SYSTEM  =  (instr[6:0] == 7'b1110011); // special
 
-  wire is_AUIPC   =  (instr[6:0] == 7'b0010111); // rd <- PC + Uimm
-  wire is_LUI     =  (instr[6:0] == 7'b0110111); // rd <- Uimm
+  // wire is_AUIPC   =  (instr[6:0] == 7'b0010111); // rd <- PC + Uimm
+  // wire is_LUI     =  (instr[6:0] == 7'b0110111); // rd <- Uimm
 
   // The 5 immediate formats
   wire [31:0] I_imm = {{21{instr[31]}}, instr[30:20]  };
@@ -71,8 +81,10 @@ module SOC (
   wire [6:0] funct7 = instr[31:25];
   wire [6:0] opcode = instr[6:0];
 
-  //instruction decoder
-  //RISCV32I base Instruction set
+  // The registers bank
+  reg [15:0] RegisterBank [0:31];
+
+  // RISCV32I base Instruction set
 
   wire [10:0] dec_bits = {instr[30],funct3,opcode};
 
@@ -114,10 +126,7 @@ module SOC (
   wire [10:0] is_ecall    =  11'b0_111_0110011;
   wire [10:0] is_ebreak   =  11'b0_111_0110011;
 
-  // The registers bank
-  reg [15:0] RegisterBank [0:31];
-
-  //alu registers
+  // ALU registers
   reg [31:0] src1_value;
   reg [31:0] src2_value;
   reg [31:0] alu_out;
@@ -170,7 +179,6 @@ module SOC (
 
   end
 
-
  `ifdef BENCH
     integer i;
     initial begin
@@ -180,22 +188,30 @@ module SOC (
     end
  `endif
 
- //state machine
-
+ // State machine
   localparam  FETCH_INSTR = 0;
   localparam  FETCH_REGS  = 1;
   localparam  EXECUTE     = 2;
   reg [1:0] state = FETCH_INSTR;
 
-  assign writeback_data = alu_out;
-  assign writeback_en = (state == EXECUTE && (is_OP || is_OPIM));
 
+ // Register write back
+  assign writeback_data = (is_JAL ||is_JALR) ? (PC+4) : alu_out;
+  assign writeback_en = (state == EXECUTE &&
+    (is_OP  ||
+    is_OPIM ||
+    is_JAL  ||
+    is_JALR)
+  );
+ // Next PC
+ wire[31:0] next_pc = is_JAL ? PC + J_imm :
+                        is_JALR ? src1_value + I_imm :
+                        PC+32'd4;
 
   always @(posedge clk) begin
     if(reset) begin
       PC <= 0;
       state <= FETCH_INSTR;
-      //instr <= 32'b0000000_00000_00000_000_00000_0110011; // NOP
     end
 
     else begin
@@ -208,7 +224,7 @@ module SOC (
   	    end
 
         `ifdef BENCH
-  	      $display("x%0d <= %b",rd,writeback_data);
+  	      $display("x%0d <= %d",rd,writeback_data);
         `endif
       end
 
@@ -226,7 +242,7 @@ module SOC (
 
         EXECUTE: begin
           if (!is_SYSTEM) begin
-            PC <= PC + 4;
+            PC <= next_pc;
           end
           state <= FETCH_INSTR;
 
@@ -246,8 +262,8 @@ module SOC (
       if(state == FETCH_REGS) begin
         $display("");
         $display("PC=%0d",PC);
-        $display("dec_bits=%b",dec_bits);
-        $display("instruction =%b\n",instr);
+        // $display("dec_bits=%b",dec_bits);
+        // $display("instruction =%b\n",instr);
 
         casex (dec_bits)
 
@@ -298,8 +314,8 @@ module SOC (
             rd, rs1, rs2 );
 
           is_OPIM: $display(
-          	" rd=%d rs1=%d imm=%0d funct3=%b ",
-            rd, rs1, I_imm, funct3);
+          	" rd=%d rs1=%d imm=%0d ",
+            rd, rs1, I_imm);
 
         endcase
 
