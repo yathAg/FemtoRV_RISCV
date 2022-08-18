@@ -12,13 +12,13 @@
 //
 // module MyModule( my inputs, my outputs ...);
 //    ...
-//    reg [31:0] MEM [0:255]; 
+//    reg [31:0] MEM [0:255];
 //    `include "riscv_assembly.v" // yes, needs to be included from here.
 //    integer L0_;
 //    initial begin
 //                  ADD(x1,x0,x0);
 //                  ADDI(x2,x0,32);
-//      Label(L0_); ADDI(x1,x1,1); 
+//      Label(L0_); ADDI(x1,x1,1);
 //                  BNE(x1, x2, LabelRef(L0_));
 //                  EBREAK();
 //    end
@@ -47,11 +47,11 @@ initial memPC = 0;
 /*
  * Register names.
  * Looks stupid, but makes assembly code more legible (without it,
- * one does not make the difference between immediate values and 
+ * one does not make the difference between immediate values and
  * register ids).
- */ 
+ */
 
-localparam x0 = 0, x1 = 1, x2 = 2, x3 = 3, x4 = 4, x5 = 5, x6 = 6, x7 = 7, 
+localparam x0 = 0, x1 = 1, x2 = 2, x3 = 3, x4 = 4, x5 = 5, x6 = 6, x7 = 7,
            x8 = 8, x9 = 9, x10=10, x11=11, x12=12, x13=13, x14=14, x15=15,
            x16=16, x17=17, x18=18, x19=19, x20=20, x21=21, x22=22, x23=23,
            x24=24, x25=25, x26=26, x27=27, x28=28, x29=29, x30=30, x31=31;
@@ -68,7 +68,7 @@ localparam [31:0] NOP_CODEOP = 32'b0000000_00000_00000_000_00000_0110011; // add
 
 task RType;
    input [6:0] opcode;
-   input [4:0] rd;   
+   input [4:0] rd;
    input [4:0] rs1;
    input [4:0] rs2;
    input [2:0] funct3;
@@ -85,7 +85,7 @@ task ADD;
    input [4:0] rs2;
    RType(7'b0110011, rd, rs1, rs2, 3'b000, 7'b0000000);
 endtask
-   
+
 task SUB;
    input [4:0] rd;
    input [4:0] rs1;
@@ -106,7 +106,7 @@ task SLT;
    input [4:0] rs2;
    RType(7'b0110011, rd, rs1, rs2, 3'b010, 7'b0000000);
 endtask
-   
+
 task SLTU;
    input [4:0] rd;
    input [4:0] rs1;
@@ -132,7 +132,7 @@ task SRA;
    input [4:0] rd;
    input [4:0] rs1;
    input [4:0] rs2;
-   RType(7'b0110011, rd, rs1, rs2, 3'b101, 7'b0000010);
+   RType(7'b0110011, rd, rs1, rs2, 3'b101, 7'b0100000);
 endtask
 
 task OR;
@@ -155,10 +155,10 @@ endtask
  * I-Type instructions.
  * rd <- rs1 OP imm
  */
-   
+
 task IType;
    input [6:0]  opcode;
-   input [4:0]  rd;   
+   input [4:0]  rd;
    input [4:0]  rs1;
    input [31:0] imm;
    input [2:0]  funct3;
@@ -169,7 +169,7 @@ task IType;
 endtask
 
 task ADDI;
-   input [4:0]  rd;   
+   input [4:0]  rd;
    input [4:0]  rs1;
    input [31:0] imm;
    begin
@@ -178,7 +178,7 @@ task ADDI;
 endtask
 
 task SLTI;
-   input [4:0]  rd;   
+   input [4:0]  rd;
    input [4:0]  rs1;
    input [31:0] imm;
    begin
@@ -187,7 +187,7 @@ task SLTI;
 endtask
 
 task SLTIU;
-   input [4:0]  rd;   
+   input [4:0]  rd;
    input [4:0]  rs1;
    input [31:0] imm;
    begin
@@ -196,7 +196,7 @@ task SLTIU;
 endtask
 
 task XORI;
-   input [4:0]  rd;   
+   input [4:0]  rd;
    input [4:0]  rs1;
    input [31:0] imm;
    begin
@@ -205,7 +205,7 @@ task XORI;
 endtask
 
 task ORI;
-   input [4:0]  rd;   
+   input [4:0]  rd;
    input [4:0]  rs1;
    input [31:0] imm;
    begin
@@ -214,7 +214,7 @@ task ORI;
 endtask
 
 task ANDI;
-   input [4:0]  rd;   
+   input [4:0]  rd;
    input [4:0]  rs1;
    input [31:0] imm;
    begin
@@ -223,10 +223,10 @@ task ANDI;
 endtask
 
 // The three shifts, SLLI, SRLI, SRAI, encoded in RType format
-// (rs2 is replaced with shift amount=imm[4:0])   
-   
+// (rs2 is replaced with shift amount=imm[4:0])
+
 task SLLI;
-   input [4:0]  rd;   
+   input [4:0]  rd;
    input [4:0]  rs1;
    input [31:0] imm;
    begin
@@ -235,7 +235,7 @@ task SLLI;
 endtask
 
 task SRLI;
-   input [4:0]  rd;   
+   input [4:0]  rd;
    input [4:0]  rs1;
    input [31:0] imm;
    begin
@@ -244,7 +244,7 @@ task SRLI;
 endtask
 
 task SRAI;
-   input [4:0]  rd;   
+   input [4:0]  rd;
    input [4:0]  rs1;
    input [31:0] imm;
    begin
@@ -267,17 +267,17 @@ task JType;
       memPC = memPC + 4;
    end
 endtask
-   
+
 task JAL;
    input [4:0] rd;
    input [31:0] imm;
    begin
       JType(7'b1101111, rd, imm);
    end
-endtask 
+endtask
 
 // JALR is encoded in the IType format.
-   
+
 task JALR;
    input [4:0] rd;
    input [4:0] rs1;
@@ -285,18 +285,18 @@ task JALR;
    begin
       IType(7'b1100111, rd, rs1, imm, 3'b000);
    end
-endtask   
+endtask
 
-/***************************************************************************/   
+/***************************************************************************/
 
 /*
  * Branch instructions.
- */    
-   
+ */
+
 task BType;
    input [6:0]  opcode;
    input [4:0]  rs1;
-   input [4:0]  rs2;   
+   input [4:0]  rs2;
    input [31:0] imm;
    input [2:0]  funct3;
    begin
@@ -307,7 +307,7 @@ endtask
 
 task BEQ;
    input [4:0]  rs1;
-   input [4:0]  rs2;   
+   input [4:0]  rs2;
    input [31:0] imm;
    begin
       BType(7'b1100011, rs1, rs2, imm, 3'b000);
@@ -316,7 +316,7 @@ endtask
 
 task BNE;
    input [4:0]  rs1;
-   input [4:0]  rs2;   
+   input [4:0]  rs2;
    input [31:0] imm;
    begin
       BType(7'b1100011, rs1, rs2, imm, 3'b001);
@@ -325,7 +325,7 @@ endtask
 
 task BLT;
    input [4:0]  rs1;
-   input [4:0]  rs2;   
+   input [4:0]  rs2;
    input [31:0] imm;
    begin
       BType(7'b1100011, rs1, rs2, imm, 3'b100);
@@ -334,7 +334,7 @@ endtask
 
 task BGE;
    input [4:0]  rs1;
-   input [4:0]  rs2;   
+   input [4:0]  rs2;
    input [31:0] imm;
    begin
       BType(7'b1100011, rs1, rs2, imm, 3'b101);
@@ -343,7 +343,7 @@ endtask
 
 task BLTU;
    input [4:0]  rs1;
-   input [4:0]  rs2;   
+   input [4:0]  rs2;
    input [31:0] imm;
    begin
       BType(7'b1100011, rs1, rs2, imm, 3'b110);
@@ -352,18 +352,18 @@ endtask
 
 task BGEU;
    input [4:0]  rs1;
-   input [4:0]  rs2;   
+   input [4:0]  rs2;
    input [31:0] imm;
    begin
       BType(7'b1100011, rs1, rs2, imm, 3'b111);
    end
 endtask
-   
-/***************************************************************************/   
+
+/***************************************************************************/
 
 /*
  * LUI and AUIPC
- */    
+ */
 
 task UType;
    input [6:0]  opcode;
@@ -390,12 +390,12 @@ task AUIPC;
       UType(7'b0010111, rd, imm);
    end
 endtask
-   
-/***************************************************************************/   
+
+/***************************************************************************/
 
 /*
  * Load instructions
- */    
+ */
 
 task LB;
    input [4:0]  rd;
@@ -404,7 +404,7 @@ task LB;
    begin
       IType(7'b0000011, rd, rs1, imm, 3'b000);
    end
-endtask      
+endtask
 
 task LH;
    input [4:0]  rd;
@@ -413,8 +413,8 @@ task LH;
    begin
       IType(7'b0000011, rd, rs1, imm, 3'b001);
    end
-endtask      
-   
+endtask
+
 task LW;
    input [4:0]  rd;
    input [4:0]  rs1;
@@ -422,7 +422,7 @@ task LW;
    begin
       IType(7'b0000011, rd, rs1, imm, 3'b010);
    end
-endtask      
+endtask
 
 task LBU;
    input [4:0]  rd;
@@ -431,7 +431,7 @@ task LBU;
    begin
       IType(7'b0000011, rd, rs1, imm, 3'b100);
    end
-endtask      
+endtask
 
 task LHU;
    input [4:0]  rd;
@@ -440,18 +440,18 @@ task LHU;
    begin
       IType(7'b0000011, rd, rs1, imm, 3'b101);
    end
-endtask      
-   
-/***************************************************************************/   
+endtask
+
+/***************************************************************************/
 
 /*
  * Store instructions
- */ 
+ */
 
 task SType;
    input [6:0]  opcode;
    input [4:0]  rs1;
-   input [4:0]  rs2;   
+   input [4:0]  rs2;
    input [31:0] imm;
    input [2:0]  funct3;
    begin
@@ -462,39 +462,39 @@ endtask
 
 // Note: in SB, SH, SW, rs1 and rs2 are swapped, to match assembly code:
 // for instance:
-//   
-//     rs2   rs1   
-//  sw ra, 0(sp)   
-   
+//
+//     rs2   rs1
+//  sw ra, 0(sp)
+
 task SB;
    input [4:0]  rs1;
-   input [4:0]  rs2;   
+   input [4:0]  rs2;
    input [31:0] imm;
    begin
       SType(7'b0100011, rs2, rs1, imm, 3'b000);
    end
-endtask   
+endtask
 
 task SH;
    input [4:0]  rs1;
-   input [4:0]  rs2;   
+   input [4:0]  rs2;
    input [31:0] imm;
    begin
       SType(7'b0100011, rs2, rs1, imm, 3'b001);
    end
-endtask   
+endtask
 
 task SW;
    input [4:0]  rs1;
-   input [4:0]  rs2;   
+   input [4:0]  rs2;
    input [31:0] imm;
    begin
       SType(7'b0100011, rs2, rs1, imm, 3'b010);
    end
-endtask   
-   
-/***************************************************************************/   
-   
+endtask
+
+/***************************************************************************/
+
 /*
  * SYSTEM instructions
  */
@@ -506,28 +506,28 @@ task FENCE;
       MEM[memPC[31:2]] = {4'b0000, pred, succ, 5'b00000, 3'b000, 5'b00000, 7'b1110011};
       memPC = memPC + 4;
    end
-endtask   
+endtask
 
 task FENCE_I;
    begin
       MEM[memPC[31:2]] = {4'b0000, 4'b0000, 4'b0000, 5'b00000, 3'b001, 5'b00000, 7'b1110011};
       memPC = memPC + 4;
    end
-endtask   
-   
+endtask
+
 task ECALL;
    begin
       MEM[memPC[31:2]] = {12'b000000000000, 5'b00000, 3'b000, 5'b00000, 7'b1110011};
       memPC = memPC + 4;
    end
-endtask   
-   
+endtask
+
 task EBREAK;
    begin
       MEM[memPC[31:2]] = {12'b000000000001, 5'b00000, 3'b000, 5'b00000, 7'b1110011};
       memPC = memPC + 4;
    end
-endtask   
+endtask
 
 task CSRRW;
    input [4:0] rd;
@@ -535,7 +535,7 @@ task CSRRW;
    input [4:0] rs1;
    begin
       MEM[memPC[31:2]] = {csr, rs1, 3'b001, rd, 7'b1110011};
-      memPC = memPC + 4;      
+      memPC = memPC + 4;
    end
 endtask
 
@@ -545,17 +545,17 @@ task CSRRS;
    input [4:0] rs1;
    begin
       MEM[memPC[31:2]] = {csr, rs1, 3'b010, rd, 7'b1110011};
-      memPC = memPC + 4;      
+      memPC = memPC + 4;
    end
 endtask
 
 task CSRRC;
    input [4:0] rd;
-   input [11:0] csr;   
+   input [11:0] csr;
    input [4:0] rs1;
    begin
       MEM[memPC[31:2]] = {csr, rs1, 3'b011, rd, 7'b1110011};
-      memPC = memPC + 4;      
+      memPC = memPC + 4;
    end
 endtask
 
@@ -565,7 +565,7 @@ task CSRRWI;
    input [31:0] imm;
    begin
       MEM[memPC[31:2]] = {csr, imm[4:0], 3'b101, rd, 7'b1110011};
-      memPC = memPC + 4;      
+      memPC = memPC + 4;
    end
 endtask
 
@@ -575,7 +575,7 @@ task CSRRSI;
    input [31:0] imm;
    begin
       MEM[memPC[31:2]] = {csr, imm[4:0], 3'b110, rd, 7'b1110011};
-      memPC = memPC + 4;      
+      memPC = memPC + 4;
    end
 endtask
 
@@ -585,23 +585,23 @@ task CSRRCI;
    input [31:0] imm;
    begin
       MEM[memPC[31:2]] = {csr, imm[4:0], 3'b111, rd, 7'b1110011};
-      memPC = memPC + 4;      
+      memPC = memPC + 4;
    end
 endtask
-   
-/***************************************************************************/   
+
+/***************************************************************************/
 
 /*
  * Labels.
  * Example of usage:
- *  
+ *
  *                   ADD(x1,x0,x0);
- *       Label(L0_); ADDI(x1,x1,1); 
+ *       Label(L0_); ADDI(x1,x1,1);
  *                   JAL(x0, LabelRef(L0_));
  */
 
    integer ASMerror=0;
-   
+
    task Label;
       inout integer L;
       begin
@@ -615,7 +615,7 @@ endtask
 	   ASMerror = 1;
 	end
 	$display("Label:",memPC);
-`endif	 
+`endif
      end
    endtask
 
@@ -627,7 +627,7 @@ endtask
 	   $display("Reference to uninitialized label");
 	   ASMerror = 1;
 	end
-`endif	 
+`endif
 	 LabelRef = L - memPC;
       end
    endfunction
@@ -636,19 +636,19 @@ endtask
       begin
 `ifdef GET_ASM_LABELS
 	 $finish();
-`endif	 
-`ifdef BENCH  
+`endif
+`ifdef BENCH
 	 if(ASMerror) $finish();
 `endif
       end
    endtask
-   
-   
+
+
 /****************************************************************************/
 
 /*
  * RISC-V ABI register names.
- */    
+ */
 
    localparam zero = x0;
    localparam ra   = x1;
@@ -681,8 +681,8 @@ endtask
    localparam s11  = x27;
    localparam t3   = x28;
    localparam t4   = x29;
-   localparam t5   = x30;      
-   localparam t6   = x31;   
+   localparam t5   = x30;
+   localparam t6   = x31;
 
 /*
  * RISC-V pseudo-instructions
@@ -722,13 +722,13 @@ task CALL;
      AUIPC(x6, offset);
      JALR(x1, x6, offset[11:0]);
   end
-endtask 
+endtask
 
 task RET;
   begin
      JALR(x0,x1,0);
   end
-endtask   
+endtask
 
 task MV;
    input [4:0]  rd;
@@ -748,12 +748,12 @@ endtask
 
 task JR;
    input [4:0]  rs1;
-   input [31:0] imm;   
+   input [31:0] imm;
    begin
       JALR(zero,rs1,imm);
    end
 endtask
-   
+
 task BEQZ;
    input [4:0]  rs1;
    input [31:0] imm;
@@ -772,7 +772,7 @@ endtask
 
 task BGT;
    input [4:0]  rs1;
-   input [4:0]  rs2;   
+   input [4:0]  rs2;
    input [31:0] imm;
    begin
       BLT(rs2,rs1,imm);
@@ -791,17 +791,16 @@ task DATAB;
    input [7:0] b1;
    input [7:0] b2;
    input [7:0] b3;
-   input [7:0] b4;   
+   input [7:0] b4;
    begin
       MEM[memPC[31:2]][ 7: 0] = b1;
       MEM[memPC[31:2]][15: 8] = b2;
       MEM[memPC[31:2]][23:16] = b3;
-      MEM[memPC[31:2]][31:24] = b4;            
+      MEM[memPC[31:2]][31:24] = b4;
       memPC = memPC+4;
    end
 endtask
 
-      
-   
-/****************************************************************************/ 
-   
+
+
+/****************************************************************************/

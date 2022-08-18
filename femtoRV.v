@@ -33,7 +33,7 @@ module SOC (
     ADD(x3,x1,x2);
     SRLI(x3,x3,3);
     SLLI(x3,x3,31);
-    SRAI(x3,x3,5);
+    SRAI(x3,x3,5);  //0100000,00101,00011,101,00011,0010011
     SRLI(x1,x3,26);
     EBREAK();
   end
@@ -140,7 +140,7 @@ module SOC (
 
     sext_src1 = { {32{src1_value[31]}},src1_value};
     sra_rslt = sext_src1 >> src2_value[4:0];
-    srai_rslt = sext_src1 >> I_imm[4:0];
+    srai_rslt = sext_src1 >> instr[24:20];
 
     casex (dec_bits)
 
@@ -150,10 +150,10 @@ module SOC (
       is_xori : alu_out = src1_value ^  I_imm;
       is_ori  : alu_out = src1_value |  I_imm;
       is_andi : alu_out = src1_value &  I_imm;
+
       is_slli : alu_out = src1_value << instr[24:20];
       is_srli : alu_out = src1_value >> I_imm[5:0];
-      is_srai : alu_out = srai_rslt;
-
+      is_srai : alu_out = srai_rslt[31:0];
       is_add  : alu_out = src1_value + src2_value;
       is_sub  : alu_out = src1_value - src2_value;
       is_sll  : alu_out = src1_value << rs2[4:0];
@@ -161,7 +161,7 @@ module SOC (
       is_sltu : alu_out = sltu_rslt;
       is_xor  : alu_out = src1_value ^ src2_value;
       is_srl  : alu_out = src1_value >> src2_value[5:0] ;
-      is_sra  : alu_out = sra_rslt;
+      is_sra  : alu_out = sra_rslt[31:0];
       is_or   : alu_out = src1_value | src2_value;
       is_and  : alu_out = src1_value & src2_value;
 
@@ -247,57 +247,58 @@ module SOC (
         $display("");
         $display("PC=%0d",PC);
         $display("dec_bits=%b",dec_bits);
+        $display("instruction =%b\n",instr);
 
         casex (dec_bits)
 
-          is_lui   : $display("lUI");
-          is_auipc : $display("AUIPC");
-          is_jal   : $display("JAL");
+          is_lui   : $write("lUI");
+          is_auipc : $write("AUIPC");
+          is_jal   : $write("JAL");
 
-          is_jalr  : $display("JALR");
-          is_beq   : $display("BEQ");
-          is_bne   : $display("BNE");
-          is_blt   : $display("BLT");
-          is_bge   : $display("BGE");
-          is_bltu  : $display("BLTU");
-          is_bgeu  : $display("BGEU");
+          is_jalr  : $write("JALR");
+          is_beq   : $write("BEQ");
+          is_bne   : $write("BNE");
+          is_blt   : $write("BLT");
+          is_bge   : $write("BGE");
+          is_bltu  : $write("BLTU");
+          is_bgeu  : $write("BGEU");
 
-          is_load  : $display("LOAD");
+          is_load  : $write("LOAD");
 
-          is_addi  : $display("ADDI");
-          is_slti  : $display("SLTI");
-          is_sltiu : $display("SLTIU");
-          is_xori  : $display("XORI");
-          is_ori   : $display("ORI");
-          is_andi  : $display("ANDI");
+          is_addi  : $write("ADDI");
+          is_slti  : $write("SLTI");
+          is_sltiu : $write("SLTIU");
+          is_xori  : $write("XORI");
+          is_ori   : $write("ORI");
+          is_andi  : $write("ANDI");
 
-          is_slli  : $display("SLLI");
-          is_srli  : $display("SRLI");
-          is_srai  : $display("SRAI");
-          is_add   : $display("ADD");
-          is_sub   : $display("SUB");
-          is_sll   : $display("SLL");
-          is_slt   : $display("SLT");
-          is_sltu  : $display("SLTU");
-          is_xor   : $display("XOR");
-          is_srl   : $display("SRL");
-          is_sra   : $display("SRA");
-          is_or    : $display("OR");
-          is_and   : $display("AND");
+          is_slli  : $write("SLLI");
+          is_srli  : $write("SRLI");
+          is_srai  : $write("SRAI");
+          is_add   : $write("ADD");
+          is_sub   : $write("SUB");
+          is_sll   : $write("SLL");
+          is_slt   : $write("SLT");
+          is_sltu  : $write("SLTU");
+          is_xor   : $write("XOR");
+          is_srl   : $write("SRL");
+          is_sra   : $write("SRA");
+          is_or    : $write("OR");
+          is_and   : $write("AND");
 
-          is_fence    : $display("FENCE");
-          is_ecall    : $display("ECALL");
-          is_ebreak   : $display("EBREAK");
+          is_fence    : $write("FENCE");
+          is_ecall    : $write("ECALL");
+          is_ebreak   : $write("EBREAK");
 
         endcase
 
         case (1'b1)
           is_OP: $display(
-            "is_OP rd=%d src1_value=%d src2_value=%d funct3=%b ",
-            rd, rs1, rs2, funct3 );
+            " rd=%d rs1=%d rs2=%d ",
+            rd, rs1, rs2 );
 
           is_OPIM: $display(
-          	"is_OPIM rd=%d src1_value=%d imm=%0d funct3=%b ",
+          	" rd=%d rs1=%d imm=%0d funct3=%b ",
             rd, rs1, I_imm, funct3);
 
         endcase
