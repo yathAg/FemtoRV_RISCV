@@ -64,6 +64,20 @@ module Processor (
   wire [31:0] U_imm = {    instr[31],   instr[30:12], {12{1'b0}}  };
   wire [31:0] J_imm = {{12{instr[31]}}, instr[19:12], instr[20]    , instr[30:21],1'b0};
 
+  // immdiate validity
+  wire is_i_instr = is_LOAD || is_OPIM || is_JALR;
+  wire is_u_instr = is_LUI || is_AUIPC ;
+  wire is_s_instr = is_STORE ;
+  wire is_b_instr = is_BRANCH ;
+  wire is_j_instr = is_JAL;
+
+  wire [31:0] imm  = is_i_instr ? {{21{instr[31]}}, instr[30:20]  }:
+                    is_s_instr ? {{21{instr[31]}}, instr[30:25], instr[11:7] }:
+                    is_b_instr ? {{20{instr[31]}}, instr[7],     instr[30:25] , instr[11:8],1'b0}:
+                    is_u_instr ? {    instr[31],   instr[30:12], {12{1'b0}}  }:
+                    is_j_instr ? {{12{instr[31]}}, instr[19:12], instr[20]    , instr[30:21],1'b0}:
+                    32'b0;
+
   // instruction fields
   wire [4:0] rs1 = instr[19:15];
   wire [4:0] rs2 = instr[24:20];
@@ -92,17 +106,27 @@ module Processor (
   reg [31:0] src2_value;
 
   // ALU
+  // ALU Registers
   reg  [31:0] alu_out;
   wire [31:0] alu_in1 = src1_value;
-  wire [31:0] alu_in2 = is_OP ? src2_value : I_imm;
+  wire [31:0] alu_in2 = is_OP | is_BRANCH ? src2_value : imm;
   wire [4:0]  shamt = is_OP ? src2_value : instr[24:20];
+
+  // Adder
+  wire [31:0] alu_plus = alu_in1 + alu_in2;
+  // 33 Bit subtractor
+  wire [32:0] alu_minus = {1'b1, ~alu_in2} + {1'b0,alu_in1} + 33'b1;
+  //comparator using subtractor
+  wire lt  = (alu_in1[31] ^ alu_in2[31]) ? alu_in1[31] : alu_minus[32];
+  wire ltu = alu_minus[32];
+  wire eq  = (alu_minus[31:0] == 0);
 
   always @ ( * ) begin
     case(funct3)
-      `f3_add  : alu_out = (funct7[5] & instr[5]) ? (alu_in1 - alu_in2) : (alu_in1 + alu_in2);
+      `f3_add  : alu_out = (funct7[5] & instr[5]) ? alu_minus[31:0] : alu_plus;
       `f3_sll  : alu_out = alu_in1 << shamt;
-      `f3_slt  : alu_out = ($signed(alu_in1) < $signed(alu_in2));
-      `f3_sltu : alu_out = (alu_in1 < alu_in2);
+      `f3_slt  : alu_out = {31'b0, lt};
+      `f3_sltu : alu_out = {31'b0, ltu};
       `f3_xor  : alu_out = (alu_in1 ^ alu_in2);
       `f3_sr   : alu_out = funct7[5]? ($signed(alu_in1) >>> shamt) : ($signed(alu_in1) >> shamt);
       `f3_or   : alu_out = (alu_in1 | alu_in2);
@@ -115,30 +139,33 @@ module Processor (
 
   always @ ( * ) begin
     case(funct3)
-      `f3_beq   : take_branch = (src1_value == src2_value);
-      `f3_bne   : take_branch = (src1_value != src2_value);
-      `f3_blt   : take_branch = ($signed(src1_value) < $signed(src2_value));
-      `f3_bge   : take_branch = ($signed(src1_value) >= $signed(src2_value));
-      `f3_bltu  : take_branch = (src1_value < src2_value);
-      `f3_bgeu  : take_branch = (src1_value >= src2_value);
-      default  : take_branch = 1'b0;
+      `f3_beq   : take_branch = eq;
+      `f3_bne   : take_branch = !eq;
+      `f3_blt   : take_branch = lt;
+      `f3_bge   : take_branch = !lt;
+      `f3_bltu  : take_branch = lt;
+      `f3_bgeu  : take_branch = !ltu;
+      default   : take_branch = 1'b0;
     endcase
   end
 
   // Next pc
-  wire[31:0] next_pc = (is_BRANCH && take_branch) ? pc + B_imm :
-                       is_JAL      ? pc + J_imm :
-                       is_JALR     ? src1_value + I_imm :
-                       pc+32'd4
+  wire [31:0] pc_plus_imm = pc + imm;
+  wire [31:0] pc_plus_4   = pc + 32'd4;
+
+  wire[31:0] next_pc = (is_BRANCH && take_branch) ? pc_plus_imm :
+                       is_JAL                     ? pc_plus_imm :
+                       is_JALR                    ? src1_value + imm :
+                       pc_plus_4
   ;
 
   // Register write back
   wire [31:0] writeback_data;
   wire        writeback_en;
 
-  assign writeback_data = (is_JAL ||is_JALR) ? (pc + 4)    :
-                          is_LUI            ? U_imm        :
-                          is_AUIPC          ? (pc + U_imm) :
+  assign writeback_data = (is_JAL ||is_JALR) ? (pc_plus_4)    :
+                          is_LUI             ? imm        :
+                          is_AUIPC           ? (pc_plus_imm) :
                           alu_out
   ;
   assign writeback_en = (state == execute && (is_OP  ||
@@ -151,8 +178,8 @@ module Processor (
 
   // State machine
   localparam  fetch_instr = 0;
-  localparam  wait_instr = 1;
-  localparam  fetch_reg  = 2;
+  localparam  wait_instr  = 1;
+  localparam  fetch_reg   = 2;
   localparam  execute     = 3;
   reg [1:0] state = fetch_instr;
 
@@ -305,7 +332,7 @@ module SOC (
     .x1(x1)
   );
 
-  Clockworks #(.SLOW(16))
+  Clockworks #(.SLOW(10))
     CW(
       .CLK(CLK),
       .RESET(RESET),
