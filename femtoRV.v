@@ -22,7 +22,7 @@ module SOC (
 
  // Instruction memory
 
-  integer L0_= 4;
+  integer L0_= 8;
   initial begin
   // ******************code here**************
   // ADD(x0,x0,x0);
@@ -39,10 +39,18 @@ module SOC (
   // SRLI(x1,x3,26);
   // EBREAK();
 
+  // ADD(x1,x0,x0);
+  //   Label(L0_);
+  // ADDI(x1,x1,1);
+  // JAL(x0,LabelRef(L0_));
+  // EBREAK();
+  // endASM();
+
   ADD(x1,x0,x0);
+  ADDI(x2,x0,32);
     Label(L0_);
   ADDI(x1,x1,1);
-  JAL(x0,LabelRef(L0_));
+  BNE(x1, x2, LabelRef(L0_));
   EBREAK();
   endASM();
   // **************************************
@@ -55,15 +63,15 @@ module SOC (
 
   wire is_JALR    =  (instr[6:0] == 7'b1100111); // rd <- PC+4; PC<-src1_value+Iimm
 
-  // wire is_FENCE   =  (instr[6:0] == 7'b0001111);
+  wire is_FENCE   =  (instr[6:0] == 7'b0001111);
   wire is_JAL     =  (instr[6:0] == 7'b1101111); // rd <- PC+4; PC<-PC+Jimm
 
   wire is_OPIM    =  (instr[6:0] == 7'b0010011); // rd <- src1_value OP Iimm
   wire is_OP      =  (instr[6:0] == 7'b0110011); // rd <- src1_value OP src2_value
   wire is_SYSTEM  =  (instr[6:0] == 7'b1110011); // special
 
-  // wire is_AUIPC   =  (instr[6:0] == 7'b0010111); // rd <- PC + Uimm
-  // wire is_LUI     =  (instr[6:0] == 7'b0110111); // rd <- Uimm
+  wire is_AUIPC   =  (instr[6:0] == 7'b0010111); // rd <- PC + Uimm
+  wire is_LUI     =  (instr[6:0] == 7'b0110111); // rd <- Uimm
 
   // The 5 immediate formats
   wire [31:0] I_imm = {{21{instr[31]}}, instr[30:20]  };
@@ -187,6 +195,20 @@ module SOC (
       end
     end
  `endif
+ // Brach machine
+ reg take_branch;
+
+  always @ ( * ) begin
+    casex(dec_bits)
+      is_beq   : take_branch = (src1_value == src2_value);
+      is_bne   : take_branch = (src1_value != src2_value);
+      is_blt   : take_branch = ($signed(src1_value) < $signed(src2_value));
+      is_bge   : take_branch = ($signed(src1_value) >= $signed(src2_value));
+      is_bltu  : take_branch = (src1_value < src2_value);
+      is_bgeu  : take_branch = (src1_value >= src2_value);
+      default  : take_branch = 1'b0;
+    endcase
+  end
 
  // State machine
   localparam  FETCH_INSTR = 0;
@@ -204,9 +226,10 @@ module SOC (
     is_JALR)
   );
  // Next PC
- wire[31:0] next_pc = is_JAL ? PC + J_imm :
-                        is_JALR ? src1_value + I_imm :
-                        PC+32'd4;
+ wire[31:0] next_pc = take_branch ? PC + B_imm :
+                      is_JAL      ? PC + J_imm :
+                      is_JALR     ? src1_value + I_imm :
+                      PC+32'd4;
 
   always @(posedge clk) begin
     if(reset) begin
