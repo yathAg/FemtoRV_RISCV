@@ -25,35 +25,11 @@ module SOC (
   integer L0_= 8;
   initial begin
   // ******************code here**************
-  // ADD(x0,x0,x0);
-  // ADD(x1,x0,x0);
-  // ADDI(x1,x1,1);
-  // ADDI(x1,x1,1);
-  // ADDI(x1,x1,1);
-  // ADDI(x1,x1,1);
-  // ADD(x2,x1,x0);
-  // ADD(x3,x1,x2);
-  // SRLI(x3,x3,3);
-  // SLLI(x3,x3,31);
-  // SRAI(x3,x3,5);
-  // SRLI(x1,x3,26);
-  // EBREAK();
-
-  // ADD(x1,x0,x0);
-  //   Label(L0_);
-  // ADDI(x1,x1,1);
-  // JAL(x0,LabelRef(L0_));
-  // EBREAK();
-  // endASM();
-
-  ADD(x1,x0,x0);
-  ADDI(x2,x0,32);
-    Label(L0_);
-  ADDI(x1,x1,1);
-  BNE(x1, x2, LabelRef(L0_));
-  EBREAK();
-  endASM();
-  // **************************************
+    LUI(x1, 32'b11111111111111111111111111111111);     // Just takes the 20 MSBs (12 LSBs ignored)
+    ORI(x1, x1, 32'b11111111111111111111111111111111); // Sets the 12 LSBs (20 MSBs ignored)
+    EBREAK();
+    endASM();
+  // *****************************************
   end
 
   // RV32 Base opcode defination
@@ -218,12 +194,17 @@ module SOC (
 
 
  // Register write back
-  assign writeback_data = (is_JAL ||is_JALR) ? (PC+4) : alu_out;
+  assign writeback_data = (is_JAL ||is_JALR) ? (PC + 4)     :
+                           is_LUI            ? U_imm        :
+                           is_AUIPC          ? (PC + U_imm) :
+                           alu_out;
   assign writeback_en = (state == EXECUTE &&
     (is_OP  ||
     is_OPIM ||
     is_JAL  ||
-    is_JALR)
+    is_JALR ||
+    is_LUI  ||
+    is_AUIPC)
   );
  // Next PC
  wire[31:0] next_pc = take_branch ? PC + B_imm :
