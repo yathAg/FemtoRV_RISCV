@@ -1,4 +1,5 @@
 `include "clockworks.v"
+`include "defines.v"
 
 module Memory (
   input clk,
@@ -73,42 +74,6 @@ module Processor (
 
   wire [10:0] dec_bits = {instr[30],funct3,opcode};
 
-  // RISCV32I base Instruction set
-  wire [10:0] is_lui      =  11'bx_xxx_0110111;
-  wire [10:0] is_auipc    =  11'bx_xxx_0010111;
-  wire [10:0] is_jal      =  11'bx_xxx_1101111;
-  wire [10:0] is_jalr     =  11'bx_000_1100111;
-  wire [10:0] is_beq      =  11'bx_000_1100011;
-  wire [10:0] is_bne      =  11'bx_001_1100011;
-  wire [10:0] is_blt      =  11'bx_100_1100011;
-  wire [10:0] is_bge      =  11'bx_101_1100011;
-  wire [10:0] is_bltu     =  11'bx_110_1100011;
-  wire [10:0] is_bgeu     =  11'bx_111_1100011;
-  wire [10:0] is_load     =  11'bx_xxx_0000011;
-  wire [10:0] is_addi     =  11'bx_000_0010011;
-  wire [10:0] is_slti     =  11'bx_010_0010011;
-  wire [10:0] is_sltiu    =  11'bx_011_0010011;
-  wire [10:0] is_xori     =  11'bx_100_0010011;
-  wire [10:0] is_ori      =  11'bx_110_0010011;
-  wire [10:0] is_andi     =  11'bx_111_0010011;
-  wire [10:0] is_slli     =  11'b0_001_0010011;
-  wire [10:0] is_srli     =  11'b0_101_0010011;
-  wire [10:0] is_srai     =  11'b1_101_0010011;
-  wire [10:0] is_add      =  11'b0_000_0110011;
-  wire [10:0] is_sub      =  11'b1_000_0110011;
-  wire [10:0] is_sll      =  11'b0_001_0110011;
-  wire [10:0] is_slt      =  11'b0_010_0110011;
-  wire [10:0] is_sltu     =  11'b0_011_0110011;
-  wire [10:0] is_xor      =  11'b0_100_0110011;
-  wire [10:0] is_srl      =  11'b0_101_0110011;
-  wire [10:0] is_sra      =  11'b1_101_0110011;
-  wire [10:0] is_or       =  11'b0_110_0110011;
-  wire [10:0] is_and      =  11'b0_111_0110011;
-  wire [10:0] is_fence    =  11'b0_111_0110011;
-  wire [10:0] is_ecall    =  11'b0_111_0110011;
-  wire [10:0] is_ebreak   =  11'b0_111_0110011;
-
-
   // The registers bank
   reg [15:0] register_bank [0:31];
 
@@ -122,49 +87,26 @@ module Processor (
      end
   `endif
 
-  // ALU registers
+  // registers
   reg [31:0] src1_value;
   reg [31:0] src2_value;
-  reg [31:0] alu_out;
-
-  // ALU operational Instructions
-  reg [31:0] sltu_rslt ;
-  reg [31:0] sltiu_rslt ;
-
-  reg [63:0] sext_src1 ;
-  reg [63:0] sra_rslt ;
-  reg [63:0] srai_rslt ;
 
   // ALU
+  reg  [31:0] alu_out;
+  wire [31:0] alu_in1 = src1_value;
+  wire [31:0] alu_in2 = is_OP ? src2_value : I_imm;
+  wire [4:0]  shamt = is_OP ? src2_value : instr[24:20];
+
   always @ ( * ) begin
-    sltu_rslt = {31'b0, src1_value < src2_value};
-    sltiu_rslt = {31'b0, src1_value < I_imm};
-
-    sext_src1 = { {32{src1_value[31]}},src1_value};
-    sra_rslt = sext_src1 >> src2_value[4:0];
-    srai_rslt = sext_src1 >> instr[24:20];
-
-    casex (dec_bits)
-      is_addi : alu_out = src1_value +  I_imm;
-      is_slti : alu_out = (( src1_value[31]==I_imm[31] ) ? sltiu_rslt : {31'b0, src1_value[31]} );
-      is_sltiu: alu_out = sltiu_rslt;
-      is_xori : alu_out = src1_value ^  I_imm;
-      is_ori  : alu_out = src1_value |  I_imm;
-      is_andi : alu_out = src1_value &  I_imm;
-      is_slli : alu_out = src1_value << instr[24:20];
-      is_srli : alu_out = src1_value >> I_imm[5:0];
-      is_srai : alu_out = srai_rslt[31:0];
-      is_add  : alu_out = src1_value + src2_value;
-      is_sub  : alu_out = src1_value - src2_value;
-      is_sll  : alu_out = src1_value << rs2[4:0];
-      is_slt  : alu_out = (( src1_value[31] == src2_value[31] ) ? sltu_rslt : {31'b0, src1_value[31]} ) ;
-      is_sltu : alu_out = sltu_rslt;
-      is_xor  : alu_out = src1_value ^ src2_value;
-      is_srl  : alu_out = src1_value >> src2_value[5:0] ;
-      is_sra  : alu_out = sra_rslt[31:0];
-      is_or   : alu_out = src1_value | src2_value;
-      is_and  : alu_out = src1_value & src2_value;
-      default : alu_out = 32'b0;
+    case(funct3)
+      `f3_add  : alu_out = (funct7[5] & instr[5]) ? (alu_in1 - alu_in2) : (alu_in1 + alu_in2);
+      `f3_sll  : alu_out = alu_in1 << shamt;
+      `f3_slt  : alu_out = ($signed(alu_in1) < $signed(alu_in2));
+      `f3_sltu : alu_out = (alu_in1 < alu_in2);
+      `f3_xor  : alu_out = (alu_in1 ^ alu_in2);
+      `f3_sr   : alu_out = funct7[5]? ($signed(alu_in1) >>> shamt) : ($signed(alu_in1) >> shamt);
+      `f3_or   : alu_out = (alu_in1 | alu_in2);
+      `f3_and  : alu_out = (alu_in1 & alu_in2);
     endcase
   end
 
@@ -172,19 +114,19 @@ module Processor (
   reg take_branch;
 
   always @ ( * ) begin
-    casex(dec_bits)
-      is_beq   : take_branch = (src1_value == src2_value);
-      is_bne   : take_branch = (src1_value != src2_value);
-      is_blt   : take_branch = ($signed(src1_value) < $signed(src2_value));
-      is_bge   : take_branch = ($signed(src1_value) >= $signed(src2_value));
-      is_bltu  : take_branch = (src1_value < src2_value);
-      is_bgeu  : take_branch = (src1_value >= src2_value);
+    case(funct3)
+      `f3_beq   : take_branch = (src1_value == src2_value);
+      `f3_bne   : take_branch = (src1_value != src2_value);
+      `f3_blt   : take_branch = ($signed(src1_value) < $signed(src2_value));
+      `f3_bge   : take_branch = ($signed(src1_value) >= $signed(src2_value));
+      `f3_bltu  : take_branch = (src1_value < src2_value);
+      `f3_bgeu  : take_branch = (src1_value >= src2_value);
       default  : take_branch = 1'b0;
     endcase
   end
 
   // Next pc
-  wire[31:0] next_pc = take_branch ? pc + B_imm :
+  wire[31:0] next_pc = (is_BRANCH && take_branch) ? pc + B_imm :
                        is_JAL      ? pc + J_imm :
                        is_JALR     ? src1_value + I_imm :
                        pc+32'd4
@@ -239,7 +181,7 @@ module Processor (
         fetch_instr: begin
           state <= wait_instr;
         end
-        
+
         wait_instr: begin
           instr <= mem_rdata;
           state <= fetch_reg;
@@ -278,39 +220,39 @@ module Processor (
         // $display("instruction =%b\n",instr);
 
         casex (dec_bits)
-          is_lui   : $write("lUI");
-          is_auipc : $write("AUIPC");
-          is_jal   : $write("JAL");
-          is_jalr  : $write("JALR");
-          is_beq   : $write("BEQ");
-          is_bne   : $write("BNE");
-          is_blt   : $write("BLT");
-          is_bge   : $write("BGE");
-          is_bltu  : $write("BLTU");
-          is_bgeu  : $write("BGEU");
-          is_load  : $write("LOAD");
-          is_addi  : $write("ADDI");
-          is_slti  : $write("SLTI");
-          is_sltiu : $write("SLTIU");
-          is_xori  : $write("XORI");
-          is_ori   : $write("ORI");
-          is_andi  : $write("ANDI");
-          is_slli  : $write("SLLI");
-          is_srli  : $write("SRLI");
-          is_srai  : $write("SRAI");
-          is_add   : $write("ADD");
-          is_sub   : $write("SUB");
-          is_sll   : $write("SLL");
-          is_slt   : $write("SLT");
-          is_sltu  : $write("SLTU");
-          is_xor   : $write("XOR");
-          is_srl   : $write("SRL");
-          is_sra   : $write("SRA");
-          is_or    : $write("OR");
-          is_and   : $write("AND");
-          is_fence    : $write("FENCE");
-          is_ecall    : $write("ECALL");
-          is_ebreak   : $write("EBREAK");
+          `is_lui   : $write("lUI");
+          `is_auipc : $write("AUIPC");
+          `is_jal   : $write("JAL");
+          `is_jalr  : $write("JALR");
+          `is_beq   : $write("BEQ");
+          `is_bne   : $write("BNE");
+          `is_blt   : $write("BLT");
+          `is_bge   : $write("BGE");
+          `is_bltu  : $write("BLTU");
+          `is_bgeu  : $write("BGEU");
+          `is_load  : $write("LOAD");
+          `is_addi  : $write("ADDI");
+          `is_slti  : $write("SLTI");
+          `is_sltiu : $write("SLTIU");
+          `is_xori  : $write("XORI");
+          `is_ori   : $write("ORI");
+          `is_andi  : $write("ANDI");
+          `is_slli  : $write("SLLI");
+          `is_srli  : $write("SRLI");
+          `is_srai  : $write("SRAI");
+          `is_add   : $write("ADD");
+          `is_sub   : $write("SUB");
+          `is_sll   : $write("SLL");
+          `is_slt   : $write("SLT");
+          `is_sltu  : $write("SLTU");
+          `is_xor   : $write("XOR");
+          `is_srl   : $write("SRL");
+          `is_sra   : $write("SRA");
+          `is_or    : $write("OR");
+          `is_and   : $write("AND");
+          `is_fence    : $write("FENCE");
+          `is_ecall    : $write("ECALL");
+          `is_ebreak   : $write("EBREAK");
         endcase
 
         case (1'b1)

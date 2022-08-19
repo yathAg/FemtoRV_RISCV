@@ -1,0 +1,52 @@
+// RISCV32I base Instruction set
+`define is_lui        11'bx_xxx_0110111
+`define is_auipc      11'bx_xxx_0010111
+`define is_jal        11'bx_xxx_1101111
+`define is_jalr       11'bx_000_1100111
+`define is_beq        11'bx_000_1100011
+`define is_bne        11'bx_001_1100011
+`define is_blt        11'bx_100_1100011
+`define is_bge        11'bx_101_1100011
+`define is_bltu       11'bx_110_1100011
+`define is_bgeu       11'bx_111_1100011
+`define is_load       11'bx_xxx_0000011
+`define is_addi       11'bx_000_0010011
+`define is_slti       11'bx_010_0010011
+`define is_sltiu      11'bx_011_0010011
+`define is_xori       11'bx_100_0010011
+`define is_ori        11'bx_110_0010011
+`define is_andi       11'bx_111_0010011
+`define is_slli       11'b0_001_0010011
+`define is_srli       11'b0_101_0010011
+`define is_srai       11'b1_101_0010011
+`define is_add        11'b0_000_0110011
+`define is_sub        11'b1_000_0110011
+`define is_sll        11'b0_001_0110011
+`define is_slt        11'b0_010_0110011
+`define is_sltu       11'b0_011_0110011
+`define is_xor        11'b0_100_0110011
+`define is_srl        11'b0_101_0110011
+`define is_sra        11'b1_101_0110011
+`define is_or         11'b0_110_0110011
+`define is_and        11'b0_111_0110011
+`define is_fence      11'b0_111_0110011
+`define is_ecall      11'b0_111_0110011
+`define is_ebreak     11'b0_111_0110011
+
+// Funct3 definations
+
+`define f3_add   3'b000
+`define f3_sll   3'b001
+`define f3_slt   3'b010
+`define f3_sltu  3'b011
+`define f3_xor   3'b100
+`define f3_sr    3'b101
+`define f3_or    3'b110
+`define f3_and   3'b111
+
+`define f3_beq        3'b000
+`define f3_bne        3'b001
+`define f3_blt        3'b100
+`define f3_bge        3'b101
+`define f3_bltu       3'b110
+`define f3_bgeu       3'b111
