@@ -1,52 +1,59 @@
 `include "clockworks.v"
 
-module SOC (
-    input  CLK,        // system clock
-    input  RESET,      // reset button
-    output [3:0] LEDS, // system LEDs
-    input  RXD,        // UART receive
-    output TXD         // UART transmit
+module Memory (
+  input clk,
+  input [31:0] mem_addr,
+  input mem_rstrb,
+  output reg [31:0] mem_rdata
   );
 
-  reg [4:0] leds;
-  assign LEDS = leds;
-
-  wire clk;    // internal clock
-  wire reset; // internal reset signal, goes low on reset
-
-  reg [31:0] MEM[0:255];
-  reg [31:0] PC = 32'b0 ; //Program counter
-  reg [31:0] instr;
+  reg [31:0] mem [0:255];
 
   `include "riscv_assembly.v"
-
- // Instruction memory
 
   integer L0_= 8;
   initial begin
   // ******************code here**************
-    LUI(x1, 32'b11111111111111111111111111111111);     // Just takes the 20 MSBs (12 LSBs ignored)
-    ORI(x1, x1, 32'b11111111111111111111111111111111); // Sets the 12 LSBs (20 MSBs ignored)
+    ADD(x1,x0,x0);
+    ADDI(x2,x0,32);
+      Label(L0_);
+    ADDI(x1,x1,1);
+    BNE(x1, x2, LabelRef(L0_));
     EBREAK();
     endASM();
   // *****************************************
   end
 
+  always @ ( posedge clk ) begin
+    if ( mem_rstrb) begin
+      mem_rdata <= mem[mem_addr[31:2]];
+    end
+  end
+endmodule // memory
+
+module Processor (
+  input clk,
+  input reset,
+  input [31:0] mem_rdata,
+  output [31:0] mem_addr,
+  output mem_rstrb,
+  output reg [31:0] x1
+  );
+
+  reg [31:0] pc = 0;
+  reg [31:0] instr;
+
   // RV32 Base opcode defination
   wire is_LOAD    =  (instr[6:0] == 7'b0000011); // rd <- mem[src1_value+Iimm]
   wire is_STORE   =  (instr[6:0] == 7'b0100011); // mem[src1_value+Simm] <- src2_value
-  wire is_BRANCH  =  (instr[6:0] == 7'b1100011); // if(src1_value OP src2_value) PC<-PC+Bimm
-
-  wire is_JALR    =  (instr[6:0] == 7'b1100111); // rd <- PC+4; PC<-src1_value+Iimm
-
+  wire is_BRANCH  =  (instr[6:0] == 7'b1100011); // if(src1_value OP src2_value) pc<-pc+Bimm
+  wire is_JALR    =  (instr[6:0] == 7'b1100111); // rd <- pc+4; pc<-src1_value+Iimm
   wire is_FENCE   =  (instr[6:0] == 7'b0001111);
-  wire is_JAL     =  (instr[6:0] == 7'b1101111); // rd <- PC+4; PC<-PC+Jimm
-
+  wire is_JAL     =  (instr[6:0] == 7'b1101111); // rd <- pc+4; pc<-pc+Jimm
   wire is_OPIM    =  (instr[6:0] == 7'b0010011); // rd <- src1_value OP Iimm
   wire is_OP      =  (instr[6:0] == 7'b0110011); // rd <- src1_value OP src2_value
   wire is_SYSTEM  =  (instr[6:0] == 7'b1110011); // special
-
-  wire is_AUIPC   =  (instr[6:0] == 7'b0010111); // rd <- PC + Uimm
+  wire is_AUIPC   =  (instr[6:0] == 7'b0010111); // rd <- pc + Uimm
   wire is_LUI     =  (instr[6:0] == 7'b0110111); // rd <- Uimm
 
   // The 5 immediate formats
@@ -56,68 +63,71 @@ module SOC (
   wire [31:0] U_imm = {    instr[31],   instr[30:12], {12{1'b0}}  };
   wire [31:0] J_imm = {{12{instr[31]}}, instr[19:12], instr[20]    , instr[30:21],1'b0};
 
- // instruction fields
+  // instruction fields
   wire [4:0] rs1 = instr[19:15];
   wire [4:0] rs2 = instr[24:20];
   wire [4:0] rd  = instr[11:7];
-
   wire [2:0] funct3 = instr[14:12];
   wire [6:0] funct7 = instr[31:25];
   wire [6:0] opcode = instr[6:0];
 
-  // The registers bank
-  reg [15:0] RegisterBank [0:31];
-
-  // RISCV32I base Instruction set
-
   wire [10:0] dec_bits = {instr[30],funct3,opcode};
 
-  wire [10:0] is_lui   =  11'bx_xxx_0110111;
-  wire [10:0] is_auipc =  11'bx_xxx_0010111;
-  wire [10:0] is_jal   =  11'bx_xxx_1101111;
-
-  wire [10:0] is_jalr  =  11'bx_000_1100111;
-  wire [10:0] is_beq   =  11'bx_000_1100011;
-  wire [10:0] is_bne   =  11'bx_001_1100011;
-  wire [10:0] is_blt   =  11'bx_100_1100011;
-  wire [10:0] is_bge   =  11'bx_101_1100011;
-  wire [10:0] is_bltu  =  11'bx_110_1100011;
-  wire [10:0] is_bgeu  =  11'bx_111_1100011;
-
-  wire [10:0] is_load  =  11'bx_xxx_0000011;
-  wire [10:0] is_addi  =  11'bx_000_0010011;
-  wire [10:0] is_slti  =  11'bx_010_0010011;
-  wire [10:0] is_sltiu =  11'bx_011_0010011;
-  wire [10:0] is_xori  =  11'bx_100_0010011;
-  wire [10:0] is_ori   =  11'bx_110_0010011;
-  wire [10:0] is_andi  =  11'bx_111_0010011;
-
-  wire [10:0] is_slli  =  11'b0_001_0010011;
-  wire [10:0] is_srli  =  11'b0_101_0010011;
-  wire [10:0] is_srai  =  11'b1_101_0010011;
-  wire [10:0] is_add   =  11'b0_000_0110011;
-  wire [10:0] is_sub   =  11'b1_000_0110011;
-  wire [10:0] is_sll   =  11'b0_001_0110011;
-  wire [10:0] is_slt   =  11'b0_010_0110011;
-  wire [10:0] is_sltu  =  11'b0_011_0110011;
-  wire [10:0] is_xor   =  11'b0_100_0110011;
-  wire [10:0] is_srl   =  11'b0_101_0110011;
-  wire [10:0] is_sra   =  11'b1_101_0110011;
-  wire [10:0] is_or    =  11'b0_110_0110011;
-  wire [10:0] is_and   =  11'b0_111_0110011;
-
+  // RISCV32I base Instruction set
+  wire [10:0] is_lui      =  11'bx_xxx_0110111;
+  wire [10:0] is_auipc    =  11'bx_xxx_0010111;
+  wire [10:0] is_jal      =  11'bx_xxx_1101111;
+  wire [10:0] is_jalr     =  11'bx_000_1100111;
+  wire [10:0] is_beq      =  11'bx_000_1100011;
+  wire [10:0] is_bne      =  11'bx_001_1100011;
+  wire [10:0] is_blt      =  11'bx_100_1100011;
+  wire [10:0] is_bge      =  11'bx_101_1100011;
+  wire [10:0] is_bltu     =  11'bx_110_1100011;
+  wire [10:0] is_bgeu     =  11'bx_111_1100011;
+  wire [10:0] is_load     =  11'bx_xxx_0000011;
+  wire [10:0] is_addi     =  11'bx_000_0010011;
+  wire [10:0] is_slti     =  11'bx_010_0010011;
+  wire [10:0] is_sltiu    =  11'bx_011_0010011;
+  wire [10:0] is_xori     =  11'bx_100_0010011;
+  wire [10:0] is_ori      =  11'bx_110_0010011;
+  wire [10:0] is_andi     =  11'bx_111_0010011;
+  wire [10:0] is_slli     =  11'b0_001_0010011;
+  wire [10:0] is_srli     =  11'b0_101_0010011;
+  wire [10:0] is_srai     =  11'b1_101_0010011;
+  wire [10:0] is_add      =  11'b0_000_0110011;
+  wire [10:0] is_sub      =  11'b1_000_0110011;
+  wire [10:0] is_sll      =  11'b0_001_0110011;
+  wire [10:0] is_slt      =  11'b0_010_0110011;
+  wire [10:0] is_sltu     =  11'b0_011_0110011;
+  wire [10:0] is_xor      =  11'b0_100_0110011;
+  wire [10:0] is_srl      =  11'b0_101_0110011;
+  wire [10:0] is_sra      =  11'b1_101_0110011;
+  wire [10:0] is_or       =  11'b0_110_0110011;
+  wire [10:0] is_and      =  11'b0_111_0110011;
   wire [10:0] is_fence    =  11'b0_111_0110011;
   wire [10:0] is_ecall    =  11'b0_111_0110011;
   wire [10:0] is_ebreak   =  11'b0_111_0110011;
+
+
+  // The registers bank
+  reg [15:0] register_bank [0:31];
+
+  // Initialize registers to 0
+  `ifdef BENCH
+     integer i;
+     initial begin
+       for(i=0; i<16; ++i) begin
+         register_bank[i] = 0;
+       end
+     end
+  `endif
 
   // ALU registers
   reg [31:0] src1_value;
   reg [31:0] src2_value;
   reg [31:0] alu_out;
 
-  wire [31:0] writeback_data;
-  wire        writeback_en;
-
+  // ALU operational Instructions
   reg [31:0] sltu_rslt ;
   reg [31:0] sltiu_rslt ;
 
@@ -127,7 +137,6 @@ module SOC (
 
   // ALU
   always @ ( * ) begin
-
     sltu_rslt = {31'b0, src1_value < src2_value};
     sltiu_rslt = {31'b0, src1_value < I_imm};
 
@@ -136,14 +145,12 @@ module SOC (
     srai_rslt = sext_src1 >> instr[24:20];
 
     casex (dec_bits)
-
       is_addi : alu_out = src1_value +  I_imm;
       is_slti : alu_out = (( src1_value[31]==I_imm[31] ) ? sltiu_rslt : {31'b0, src1_value[31]} );
       is_sltiu: alu_out = sltiu_rslt;
       is_xori : alu_out = src1_value ^  I_imm;
       is_ori  : alu_out = src1_value |  I_imm;
       is_andi : alu_out = src1_value &  I_imm;
-
       is_slli : alu_out = src1_value << instr[24:20];
       is_srli : alu_out = src1_value >> I_imm[5:0];
       is_srai : alu_out = srai_rslt[31:0];
@@ -157,22 +164,12 @@ module SOC (
       is_sra  : alu_out = sra_rslt[31:0];
       is_or   : alu_out = src1_value | src2_value;
       is_and  : alu_out = src1_value & src2_value;
-
       default : alu_out = 32'b0;
     endcase
-
   end
 
- `ifdef BENCH
-    integer i;
-    initial begin
-      for(i=0; i<16; ++i) begin
-        RegisterBank[i] = 0;
-      end
-    end
- `endif
- // Brach machine
- reg take_branch;
+  // Brach machine
+  reg take_branch;
 
   always @ ( * ) begin
     casex(dec_bits)
@@ -186,95 +183,104 @@ module SOC (
     endcase
   end
 
- // State machine
-  localparam  FETCH_INSTR = 0;
-  localparam  FETCH_REGS  = 1;
-  localparam  EXECUTE     = 2;
-  reg [1:0] state = FETCH_INSTR;
+  // Next pc
+  wire[31:0] next_pc = take_branch ? pc + B_imm :
+                       is_JAL      ? pc + J_imm :
+                       is_JALR     ? src1_value + I_imm :
+                       pc+32'd4
+  ;
 
+  // Register write back
+  wire [31:0] writeback_data;
+  wire        writeback_en;
 
- // Register write back
-  assign writeback_data = (is_JAL ||is_JALR) ? (PC + 4)     :
-                           is_LUI            ? U_imm        :
-                           is_AUIPC          ? (PC + U_imm) :
-                           alu_out;
-  assign writeback_en = (state == EXECUTE &&
-    (is_OP  ||
-    is_OPIM ||
-    is_JAL  ||
-    is_JALR ||
-    is_LUI  ||
-    is_AUIPC)
-  );
- // Next PC
- wire[31:0] next_pc = take_branch ? PC + B_imm :
-                      is_JAL      ? PC + J_imm :
-                      is_JALR     ? src1_value + I_imm :
-                      PC+32'd4;
+  assign writeback_data = (is_JAL ||is_JALR) ? (pc + 4)    :
+                          is_LUI            ? U_imm        :
+                          is_AUIPC          ? (pc + U_imm) :
+                          alu_out
+  ;
+  assign writeback_en = (state == execute && (is_OP  ||
+                                              is_OPIM ||
+                                              is_JAL  ||
+                                              is_JALR ||
+                                              is_LUI  ||
+                                              is_AUIPC))
+  ;
+
+  // State machine
+  localparam  fetch_instr = 0;
+  localparam  wait_instr = 1;
+  localparam  fetch_reg  = 2;
+  localparam  execute     = 3;
+  reg [1:0] state = fetch_instr;
 
   always @(posedge clk) begin
+    //  Reset
     if(reset) begin
-      PC <= 0;
-      state <= FETCH_INSTR;
+      pc <= 0;
+      state <= fetch_instr;
     end
 
     else begin
       if(writeback_en && rd != 0)
-      begin
-        RegisterBank[rd] <= writeback_data;
-
-        if(rd == 1) begin
-  	      leds <= writeback_data;
-  	    end
-
-        `ifdef BENCH
-  	      $display("x%0d <= %d",rd,writeback_data);
-        `endif
-      end
+        begin
+          register_bank[rd] <= writeback_data;
+          // Output of register x1
+          if(rd == 1) begin
+            x1 <= writeback_data;
+          end
+          //  Bench to display value stored at end of instruction
+          `ifdef BENCH
+            $display("x%0d <= %d",rd,writeback_data);
+          `endif
+        end
 
       case(state)
-        FETCH_INSTR: begin
-          instr <= MEM[PC[31:2]];
-          state <= FETCH_REGS;
+        fetch_instr: begin
+          state <= wait_instr;
+        end
+        
+        wait_instr: begin
+          instr <= mem_rdata;
+          state <= fetch_reg;
         end
 
-        FETCH_REGS: begin
-          src1_value <= RegisterBank[rs1];
-          src2_value <= RegisterBank[rs2];
-          state <= EXECUTE;
+        fetch_reg: begin
+          src1_value <= register_bank[rs1];
+          src2_value <= register_bank[rs2];
+          state <= execute;
         end
 
-        EXECUTE: begin
+        execute: begin
           if (!is_SYSTEM) begin
-            PC <= next_pc;
+            pc <= next_pc;
           end
-          state <= FETCH_INSTR;
+          state <= fetch_instr;
 
           `ifdef BENCH
-            if(is_SYSTEM) $finish();
+           if(is_SYSTEM) $finish();
           `endif
         end
       endcase
     end
   end
 
-  //assign LEDS = is_SYSTEM ? 31 : {PC[0],is_OP,is_OPIM,is_STORE};
+  assign mem_addr = pc;
+  assign mem_rstrb = (state == fetch_instr);
 
+  // BENCH TEST CODE
   `ifdef BENCH
     always @(*)
-      //dec_bits ={instr[30],funct3,opcode};
-      if(state == FETCH_REGS) begin
+      if(state == fetch_reg) begin
         $display("");
-        $display("PC=%0d",PC);
+        $display("pc=%0d",pc);
         // $display("dec_bits=%b",dec_bits);
         // $display("instruction =%b\n",instr);
 
         casex (dec_bits)
-
           is_lui   : $write("lUI");
           is_auipc : $write("AUIPC");
           is_jal   : $write("JAL");
-
           is_jalr  : $write("JALR");
           is_beq   : $write("BEQ");
           is_bne   : $write("BNE");
@@ -282,16 +288,13 @@ module SOC (
           is_bge   : $write("BGE");
           is_bltu  : $write("BLTU");
           is_bgeu  : $write("BGEU");
-
           is_load  : $write("LOAD");
-
           is_addi  : $write("ADDI");
           is_slti  : $write("SLTI");
           is_sltiu : $write("SLTIU");
           is_xori  : $write("XORI");
           is_ori   : $write("ORI");
           is_andi  : $write("ANDI");
-
           is_slli  : $write("SLLI");
           is_srli  : $write("SRLI");
           is_srai  : $write("SRAI");
@@ -305,11 +308,9 @@ module SOC (
           is_sra   : $write("SRA");
           is_or    : $write("OR");
           is_and   : $write("AND");
-
           is_fence    : $write("FENCE");
           is_ecall    : $write("ECALL");
           is_ebreak   : $write("EBREAK");
-
         endcase
 
         case (1'b1)
@@ -320,7 +321,6 @@ module SOC (
           is_OPIM: $display(
           	" rd=%d rs1=%d imm=%0d ",
             rd, rs1, I_imm);
-
         endcase
 
         if(is_SYSTEM) begin
@@ -329,13 +329,49 @@ module SOC (
       end
   `endif
 
-  Clockworks #(.SLOW(19))
+endmodule //processor
+
+module SOC (
+    input  CLK,        // system clock
+    input  RESET,      // reset button
+    output [3:0] LEDS, // system LEDs
+    input  RXD,        // UART receive
+    output TXD         // UART transmit
+  );
+
+  wire clk;
+  wire reset;
+
+  wire [31:0] mem_addr;
+  wire [31:0] mem_rdata;
+  wire mem_rstrb;
+  wire [31:0] x1;
+
+  Memory RAM(
+    .clk(clk),
+    .mem_addr(mem_addr),
+    .mem_rdata(mem_rdata),
+    .mem_rstrb(mem_rstrb)
+  );
+
+  Processor CPU(
+    .clk(clk),
+    .reset(reset),
+    .mem_addr(mem_addr),
+    .mem_rdata(mem_rdata),
+    .mem_rstrb(mem_rstrb),
+    .x1(x1)
+  );
+
+  Clockworks #(.SLOW(16))
     CW(
       .CLK(CLK),
       .RESET(RESET),
       .clk(clk),
       .reset(reset)
-    );
+  );
 
-  assign TXD  = 1'b0; // not used for now
+  assign LEDS = x1[3:0];
+  assign TXD  = 1'b0;
+
 endmodule
