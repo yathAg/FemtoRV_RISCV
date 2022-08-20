@@ -10,18 +10,37 @@ module Memory (
 
   reg [31:0] mem [0:255];
 
+  `ifdef BENCH
+    localparam slow_bit=12;
+  `else
+    localparam slow_bit=15;
+  `endif
+
   `include "riscv_assembly.v"
 
-  integer L0_= 8;
+  integer L0_= 4;
+  integer wait_ = 20;
+  integer L1_   = 28;
+
   initial begin
   // ******************code here**************
-    ADD(x1,x0,x0);
-    ADDI(x2,x0,32);
-      Label(L0_);
-    ADDI(x1,x1,1);
-    BNE(x1, x2, LabelRef(L0_));
-    EBREAK();
-    endASM();
+      ADD(x10,x0,x0);
+    Label(L0_);
+      ADDI(x10,x10,1);
+      JAL(x1,LabelRef(wait_)); // call(wait_)
+      JAL(zero,LabelRef(L0_)); // jump(l0_)
+
+      EBREAK();
+
+    Label(wait_);
+      ADDI(x11,x0,1);
+      SLLI(x11,x11,slow_bit);
+    Label(L1_);
+      ADDI(x11,x11,-1);
+      BNE(x11,x0,LabelRef(L1_));
+      JALR(x0,x1,0);
+
+      endASM();
   // *****************************************
   end
 
@@ -38,7 +57,7 @@ module Processor (
   input [31:0] mem_rdata,
   output [31:0] mem_addr,
   output mem_rstrb,
-  output reg [31:0] x1
+  output reg [31:0] proc_out_reg
   );
 
   reg [31:0] pc = 0;
@@ -195,13 +214,13 @@ module Processor (
         begin
           register_bank[rd] <= writeback_data;
           // Output of register x1
-          if(rd == 1) begin
-            x1 <= writeback_data;
+          if(rd == 10 ) begin
+            proc_out_reg <= writeback_data;
           end
           //  Bench to display value stored at end of instruction
-          `ifdef BENCH
-            $display("x%0d <= %d",rd,writeback_data);
-          `endif
+          // `ifdef BENCH
+          //   $display("x%0d <= %d",rd,writeback_data);
+          // `endif
         end
 
       case(state)
@@ -238,65 +257,65 @@ module Processor (
   assign mem_rstrb = (state == fetch_instr);
 
   // BENCH TEST CODE
-  `ifdef BENCH
-    always @(*)
-      if(state == fetch_reg) begin
-        $display("");
-        $display("pc=%0d",pc);
-        // $display("dec_bits=%b",dec_bits);
-        // $display("instruction =%b\n",instr);
-
-        casex (dec_bits)
-          `is_lui   : $write("lUI");
-          `is_auipc : $write("AUIPC");
-          `is_jal   : $write("JAL");
-          `is_jalr  : $write("JALR");
-          `is_beq   : $write("BEQ");
-          `is_bne   : $write("BNE");
-          `is_blt   : $write("BLT");
-          `is_bge   : $write("BGE");
-          `is_bltu  : $write("BLTU");
-          `is_bgeu  : $write("BGEU");
-          `is_load  : $write("LOAD");
-          `is_addi  : $write("ADDI");
-          `is_slti  : $write("SLTI");
-          `is_sltiu : $write("SLTIU");
-          `is_xori  : $write("XORI");
-          `is_ori   : $write("ORI");
-          `is_andi  : $write("ANDI");
-          `is_slli  : $write("SLLI");
-          `is_srli  : $write("SRLI");
-          `is_srai  : $write("SRAI");
-          `is_add   : $write("ADD");
-          `is_sub   : $write("SUB");
-          `is_sll   : $write("SLL");
-          `is_slt   : $write("SLT");
-          `is_sltu  : $write("SLTU");
-          `is_xor   : $write("XOR");
-          `is_srl   : $write("SRL");
-          `is_sra   : $write("SRA");
-          `is_or    : $write("OR");
-          `is_and   : $write("AND");
-          `is_fence    : $write("FENCE");
-          `is_ecall    : $write("ECALL");
-          `is_ebreak   : $write("EBREAK");
-        endcase
-
-        case (1'b1)
-          is_OP: $display(
-            " rd=%d rs1=%d rs2=%d ",
-            rd, rs1, rs2 );
-
-          is_OPIM: $display(
-          	" rd=%d rs1=%d imm=%0d ",
-            rd, rs1, I_imm);
-        endcase
-
-        if(is_SYSTEM) begin
-     	    $finish();
-     	  end
-      end
-  `endif
+  // `ifdef BENCH
+  //   always @(*)
+  //     if(state == fetch_reg) begin
+  //       $display("");
+  //       $display("pc=%0d",pc);
+  //       // $display("dec_bits=%b",dec_bits);
+  //       // $display("instruction =%b\n",instr);
+  //
+  //       casex (dec_bits)
+  //         `is_lui   : $write("lUI");
+  //         `is_auipc : $write("AUIPC");
+  //         `is_jal   : $write("JAL");
+  //         `is_jalr  : $write("JALR");
+  //         `is_beq   : $write("BEQ");
+  //         `is_bne   : $write("BNE");
+  //         `is_blt   : $write("BLT");
+  //         `is_bge   : $write("BGE");
+  //         `is_bltu  : $write("BLTU");
+  //         `is_bgeu  : $write("BGEU");
+  //         `is_load  : $write("LOAD");
+  //         `is_addi  : $write("ADDI");
+  //         `is_slti  : $write("SLTI");
+  //         `is_sltiu : $write("SLTIU");
+  //         `is_xori  : $write("XORI");
+  //         `is_ori   : $write("ORI");
+  //         `is_andi  : $write("ANDI");
+  //         `is_slli  : $write("SLLI");
+  //         `is_srli  : $write("SRLI");
+  //         `is_srai  : $write("SRAI");
+  //         `is_add   : $write("ADD");
+  //         `is_sub   : $write("SUB");
+  //         `is_sll   : $write("SLL");
+  //         `is_slt   : $write("SLT");
+  //         `is_sltu  : $write("SLTU");
+  //         `is_xor   : $write("XOR");
+  //         `is_srl   : $write("SRL");
+  //         `is_sra   : $write("SRA");
+  //         `is_or    : $write("OR");
+  //         `is_and   : $write("AND");
+  //         `is_fence    : $write("FENCE");
+  //         `is_ecall    : $write("ECALL");
+  //         `is_ebreak   : $write("EBREAK");
+  //       endcase
+  //
+  //       case (1'b1)
+  //         is_OP: $display(
+  //           " rd=%d rs1=%d rs2=%d ",
+  //           rd, rs1, rs2 );
+  //
+  //         is_OPIM: $display(
+  //         	" rd=%d rs1=%d imm=%0d ",
+  //           rd, rs1, I_imm);
+  //       endcase
+  //
+  //       if(is_SYSTEM) begin
+  //    	    $finish();
+  //    	  end
+  //     end
+  // `endif
 
 endmodule //processor
 
@@ -314,7 +333,7 @@ module SOC (
   wire [31:0] mem_addr;
   wire [31:0] mem_rdata;
   wire mem_rstrb;
-  wire [31:0] x1;
+  wire [31:0] proc_out;
 
   Memory RAM(
     .clk(clk),
@@ -329,18 +348,17 @@ module SOC (
     .mem_addr(mem_addr),
     .mem_rdata(mem_rdata),
     .mem_rstrb(mem_rstrb),
-    .x1(x1)
+    .proc_out_reg(proc_out)
   );
 
-  Clockworks #(.SLOW(10))
-    CW(
+  Clockworks CW(
       .CLK(CLK),
       .RESET(RESET),
       .clk(clk),
       .reset(reset)
   );
 
-  assign LEDS = x1[3:0];
+  assign LEDS = proc_out[3:0];
   assign TXD  = 1'b0;
 
 endmodule
