@@ -17,33 +17,32 @@ module Memory (
   `endif
 
   `include "riscv_assembly.v"
+// ******************code here**************
+integer L0_   = 8;
+integer wait_ = 32;
+integer L1_   = 40;
 
-  integer L0_= 4;
-  integer wait_ = 20;
-  integer L1_   = 28;
+initial begin
+    LI(s0,0);
+    LI(s1,16);
+  Label(L0_);
+    LB(a0,s0,400); // LEDs are plugged on a0 (=x10)
+    CALL(LabelRef(wait_));
+    ADDI(s0,s0,1);
+    BNE(s0,s1, LabelRef(L0_));
+    EBREAK();
 
-  initial begin
-  // ******************code here**************
-      ADD(x10,x0,x0);
-    Label(L0_);
-      ADDI(x10,x10,1);
-      JAL(x1,LabelRef(wait_)); // call(wait_)
-      JAL(zero,LabelRef(L0_)); // jump(l0_)
+  Label(wait_);
+    LI(t0,1);
+    SLLI(t0,t0,slow_bit);
+  Label(L1_);
+    ADDI(t0,t0,-1);
+    BNEZ(t0,LabelRef(L1_));
+    RET();
 
-      EBREAK();
-
-    Label(wait_);
-      ADDI(x11,x0,1);
-      SLLI(x11,x11,slow_bit);
-    Label(L1_);
-      ADDI(x11,x11,-1);
-      BNE(x11,x0,LabelRef(L1_));
-      JALR(x0,x1,0);
-
-      endASM();
-  // *****************************************
+    endASM();
   end
-
+// *****************************************
   always @ ( posedge clk ) begin
     if ( mem_rstrb) begin
       mem_rdata <= mem[mem_addr[31:2]];
@@ -195,12 +194,28 @@ module Processor (
                                               is_AUIPC))
   ;
 
+  wire [31:0] loadstore_addr = src1_value + I_imm;
+
+  wire mem_byte_access      = funct3[1:0] == 2'b00;
+  wire mem_halfword_access  = funct3[1:0] == 2'b01;
+
+  wire [15:0] load_halfword = loadstore_addr[1] ? mem_rdata[31:16] : mem_rdata[15:0];
+  wire [7:0]  load_byte     = loadstore_addr[0] ? load_halfword[15:8] : load_halfword[7:0];
+
+  wire load_sign = !funct3[2] & (mem_byte_access ? load_byte[7] : load_halfword[15]);
+
+  wire load_data = mem_byte_access     ? {{24{load_sign}}  ,   load_byte} :
+                   mem_halfword_access ? {{16{load_data}}, load_halfword} :
+                   mem_rdata ;
+
   // State machine
   localparam  fetch_instr = 0;
   localparam  wait_instr  = 1;
   localparam  fetch_reg   = 2;
   localparam  execute     = 3;
-  reg [1:0] state = fetch_instr;
+  localparam  load_state  = 4;
+  localparam  wait_data   = 5;
+  reg [2:0] state = fetch_instr;
 
   always @(posedge clk) begin
     //  Reset
@@ -249,12 +264,20 @@ module Processor (
            if(is_SYSTEM) $finish();
           `endif
         end
+
+        load_state: begin
+          state <= wait_data;
+        end
+
+        wait_data: begin
+          state <= fetch_instr;
+        end
       endcase
     end
   end
 
-  assign mem_addr = pc;
-  assign mem_rstrb = (state == fetch_instr);
+  assign mem_addr = (state == wait_instr || state == fetch_instr) ? pc :loadstore_addr ;
+  assign mem_rstrb = (state == fetch_instr || state == load_state);
 
   // BENCH TEST CODE
   // `ifdef BENCH
