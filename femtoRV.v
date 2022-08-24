@@ -2,10 +2,12 @@
 `include "defines.v"
 
 module Memory (
-  input clk,
-  input [31:0] mem_addr,
-  input mem_rstrb,
-  output reg [31:0] mem_rdata
+  input              clk,
+  input       [31:0] mem_addr,
+  input              mem_rstrb,
+  output reg  [31:0] mem_rdata,
+  input       [31:0] mem_wdata,
+  input       [3:0]  mem_wmask
   );
 
   reg [31:0] mem [0:255];
@@ -17,46 +19,57 @@ module Memory (
   `endif
 
   `include "riscv_assembly.v"
-// ******************code here**************
-integer L0_   = 8;
-integer wait_ = 32;
-integer L1_   = 40;
+  // ******************code here**************
+  integer L0_   = 8;
+  integer wait_ = 32;
+  integer L1_   = 40;
 
-initial begin
-    LI(s0,0);
-    LI(s1,16);
-  Label(L0_);
-    LB(a0,s0,400); // LEDs are plugged on a0 (=x10)
-    CALL(LabelRef(wait_));
-    ADDI(s0,s0,1);
-    BNE(s0,s1, LabelRef(L0_));
-    EBREAK();
+  initial begin
+      LI(s0,0);
+      LI(s1,16);
+    Label(L0_);
+      LB(a0,s0,400); // LEDs are plugged on a0 (=x10)
+      CALL(LabelRef(wait_));
+      ADDI(s0,s0,1);
+      BNE(s0,s1, LabelRef(L0_));
+      EBREAK();
 
-  Label(wait_);
-    LI(t0,1);
-    SLLI(t0,t0,slow_bit);
-  Label(L1_);
-    ADDI(t0,t0,-1);
-    BNEZ(t0,LabelRef(L1_));
-    RET();
+    Label(wait_);
+      LI(t0,1);
+      SLLI(t0,t0,slow_bit);
+    Label(L1_);
+      ADDI(t0,t0,-1);
+      BNEZ(t0,LabelRef(L1_));
+      RET();
 
-    endASM();
-  end
-// *****************************************
+      endASM();
+    end
+  // *****************************************
+
+  wire [29:0] word_addr = mem_addr[31:2];
+
   always @ ( posedge clk ) begin
-    if ( mem_rstrb) begin
+    if (mem_rstrb) begin
       mem_rdata <= mem[mem_addr[31:2]];
     end
+
+  if (mem_wmask[0]) mem[word_addr][ 7:0 ] <= mem_wdata [ 7:0 ];
+  if (mem_wmask[1]) mem[word_addr][15:8 ] <= mem_wdata [15:8 ];
+  if (mem_wmask[2]) mem[word_addr][23:16] <= mem_wdata [23:16];
+  if (mem_wmask[3]) mem[word_addr][31:24] <= mem_wdata [31:24];
+
   end
 endmodule // memory
 
 module Processor (
-  input clk,
-  input reset,
-  input [31:0] mem_rdata,
-  output [31:0] mem_addr,
-  output mem_rstrb,
-  output reg [31:0] proc_out_reg
+  input             clk,
+  input             reset,
+  input      [31:0] mem_rdata,
+  output     [31:0] mem_addr,
+  output            mem_rstrb,
+  output reg [31:0] proc_out_reg,
+  output     [ 3:0] mem_wmask,
+  output     [31:0] mem_wdata
   );
 
   reg [31:0] pc = 0;
@@ -90,11 +103,11 @@ module Processor (
   wire is_j_instr = is_JAL;
 
   wire [31:0] imm  = is_i_instr ? {{21{instr[31]}}, instr[30:20]  }:
-                    is_s_instr ? {{21{instr[31]}}, instr[30:25], instr[11:7] }:
-                    is_b_instr ? {{20{instr[31]}}, instr[7],     instr[30:25] , instr[11:8],1'b0}:
-                    is_u_instr ? {    instr[31],   instr[30:12], {12{1'b0}}  }:
-                    is_j_instr ? {{12{instr[31]}}, instr[19:12], instr[20]    , instr[30:21],1'b0}:
-                    32'b0;
+                     is_s_instr ? {{21{instr[31]}}, instr[30:25], instr[11:7] }:
+                     is_b_instr ? {{20{instr[31]}}, instr[7],     instr[30:25] , instr[11:8],1'b0}:
+                     is_u_instr ? {    instr[31],   instr[30:12], {12{1'b0}}  }:
+                     is_j_instr ? {{12{instr[31]}}, instr[19:12], instr[20]    , instr[30:21],1'b0}:
+                     32'b0;
 
   // instruction fields
   wire [4:0] rs1 = instr[19:15];
@@ -128,7 +141,7 @@ module Processor (
   reg  [31:0] alu_out;
   wire [31:0] alu_in1 = src1_value;
   wire [31:0] alu_in2 = is_OP | is_BRANCH ? src2_value : imm;
-  wire [4:0]  shamt = is_OP ? src2_value : instr[24:20];
+  wire [ 4:0] shamt   = is_OP ? src2_value : instr[24:20];
 
   // Adder
   wire [31:0] alu_plus = alu_in1 + alu_in2;
@@ -182,8 +195,8 @@ module Processor (
   wire        writeback_en;
 
   assign writeback_data = (is_JAL ||is_JALR) ? (pc_plus_4)    :
-                          is_LUI             ? imm        :
-                          is_AUIPC           ? (pc_plus_imm) :
+                          is_LUI             ? imm            :
+                          is_AUIPC           ? (pc_plus_imm)  :
                           alu_out
   ;
   assign writeback_en = (state == execute && (is_OP  ||
@@ -194,7 +207,8 @@ module Processor (
                                               is_AUIPC))
   ;
 
-  wire [31:0] loadstore_addr = src1_value + I_imm;
+  // Load
+  wire [31:0] loadstore_addr = src1_value + imm;
 
   wire mem_byte_access      = funct3[1:0] == 2'b00;
   wire mem_halfword_access  = funct3[1:0] == 2'b01;
@@ -206,7 +220,41 @@ module Processor (
 
   wire load_data = mem_byte_access     ? {{24{load_sign}}  ,   load_byte} :
                    mem_halfword_access ? {{16{load_data}}, load_halfword} :
-                   mem_rdata ;
+                   mem_rdata
+  ;
+
+  // Store
+
+  // 31 : 24 | 23 : 16 | 15 : 8 | 7 : 0
+
+  //                              [7:0]   byte 00
+  //                      [7:0]           byte 01
+  //            [7:0]                     byte 10
+  //  [7:0]                               byte 11
+
+  //                     [15:8]  [7:0]    hw   00
+  //  [15:8]    [7:0]                     hw   10
+
+  //  [31:26]  [23:16]  [15:8]  [7:0]     w    00
+
+
+  assign mem_wdata[ 7:0 ] = src2_value[7:0];
+  assign mem_wdata[15:8 ] = loadstore_addr[0] ? src2_value[ 7:0] : src2_value[15:8 ];
+  assign mem_wdata[23:16] = loadstore_addr[1] ? src2_value[ 7:0] : src2_value[23:16];
+  assign mem_wdata[31:24] = loadstore_addr[0] ? src2_value[ 7:0] :
+                            loadstore_addr[1] ? src2_value[15:8] : src2_value[31:24]
+  ;
+
+  wire [3:0] store_mask =
+    (mem_byte_access) ?
+      (loadstore_addr[1]   ?
+        (loadstore_addr[0] ? 4'b1000 : 4'b0100) :   // 11  10
+        (loadstore_addr[0] ? 4'b0010 : 4'b0001)     // 01  00
+      ):
+      mem_halfword_access  ?
+        (loadstore_addr[1] ? 4'b1100 : 4'b0011) :   // 10 00
+        4'b1111
+  ;
 
   // State machine
   localparam  fetch_instr = 0;
@@ -215,6 +263,7 @@ module Processor (
   localparam  execute     = 3;
   localparam  load_state  = 4;
   localparam  wait_data   = 5;
+  localparam  store_state = 6;
   reg [2:0] state = fetch_instr;
 
   always @(posedge clk) begin
@@ -272,12 +321,17 @@ module Processor (
         wait_data: begin
           state <= fetch_instr;
         end
+
+        store_state: begin
+          state <= fetch_instr;
+        end
       endcase
     end
   end
 
-  assign mem_addr = (state == wait_instr || state == fetch_instr) ? pc :loadstore_addr ;
+  assign mem_addr  = (state == wait_instr || state == fetch_instr) ? pc :loadstore_addr ;
   assign mem_rstrb = (state == fetch_instr || state == load_state);
+  assign mem_wmask = {4{(state == store_state)}} & store_mask;
 
   // BENCH TEST CODE
   // `ifdef BENCH
@@ -357,12 +411,16 @@ module SOC (
   wire [31:0] mem_rdata;
   wire mem_rstrb;
   wire [31:0] proc_out;
+  wire [31:0] mem_wdata;
+  wire [3:0]  mem_wmask;
 
   Memory RAM(
     .clk(clk),
     .mem_addr(mem_addr),
     .mem_rdata(mem_rdata),
-    .mem_rstrb(mem_rstrb)
+    .mem_rstrb(mem_rstrb),
+    .mem_wdata(mem_wdata),
+    .mem_wmask(mem_wmask)
   );
 
   Processor CPU(
@@ -371,6 +429,8 @@ module SOC (
     .mem_addr(mem_addr),
     .mem_rdata(mem_rdata),
     .mem_rstrb(mem_rstrb),
+    .mem_wdata(mem_wdata),
+    .mem_wmask(mem_wmask),
     .proc_out_reg(proc_out)
   );
 
