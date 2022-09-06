@@ -29,7 +29,7 @@ module Memory (
   function [31:0] io_bit_offset;
     input  [31:0] bit_id;
     begin
-      io_bit_offset = 1 << (bit_id +2);
+      io_bit_offset = 1 << (bit_id + 2);
     end
   endfunction
 
@@ -393,7 +393,7 @@ module Processor (
     end
   end
 
-  assign writeback_en = (state== execute && !is_BRANCH && !is_STORE) || (state == wait_data);
+  assign writeback_en = (state == execute && !is_BRANCH && !is_STORE) || (state == wait_data);
   assign mem_addr  = (state == wait_instr  || state == fetch_instr) ? pc :loadstore_addr ;
   assign mem_rstrb = (state == fetch_instr || state == load_state);
   assign mem_wmask = {4{(state == store_state)}} & store_mask;
@@ -482,11 +482,11 @@ module SOC (
   Processor CPU(
     .clk(clk),
     .reset(reset),
-    .mem_addr(mem_addr),
     .mem_rdata(mem_rdata),
+    .mem_addr(mem_addr),
     .mem_rstrb(mem_rstrb),
-    .mem_wdata(mem_wdata),
-    .mem_wmask(mem_wmask)
+    .mem_wmask(mem_wmask),
+    .mem_wdata(mem_wdata)
     // .proc_out_reg(proc_out)
   );
 
@@ -499,8 +499,8 @@ module SOC (
   Memory RAM(
     .clk(clk),
     .mem_addr(mem_addr),
-    .mem_rdata(ram_rdata),
     .mem_rstrb(is_ram & mem_rstrb),
+    .mem_rdata(ram_rdata),
     .mem_wdata(mem_wdata),
     .mem_wmask({4{is_ram}} & mem_wmask)
   );
