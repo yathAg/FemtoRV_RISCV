@@ -1,16 +1,18 @@
 `include "clockworks.v"
+`include "emitter_uart.v"
+
 `include "defines.v"
 
 module Memory (
   input              clk,
-  input       [31:0] mem_addr,
-  input              mem_rstrb,
-  output reg  [31:0] mem_rdata,
-  input       [31:0] mem_wdata,
-  input       [3:0]  mem_wmask
+  input       [31:0] mem_addr,      // Address to be read
+  input              mem_rstrb,     // Goes High when the processor wants to Read
+  output reg  [31:0] mem_rdata,     // Data Read
+  input       [31:0] mem_wdata,     // Data to be written
+  input       [3:0]  mem_wmask      // Mask for writing the 4 Bytes
   );
 
-  reg [31:0] mem [0:255];
+  reg [31:0] mem [0:1535];
 
   `ifdef BENCH
     localparam slow_bit=12;
@@ -18,39 +20,97 @@ module Memory (
     localparam slow_bit=15;
   `endif
 
+  // Memory-mapped IO in IO page, 1-hot addressing in word address.
+  localparam  io_led_bit   = 0;  // write led bits
+  localparam  io_uart_dbit = 1;  // write data to send 8 bits
+  localparam  io_uart_cbit = 2;  // Read Status
+
+  // Converts an IO_xxx_bit constant into an offset in IO page.
+  function [31:0] io_bit_offset;
+    input  [31:0] bit_id;
+    begin
+      io_bit_offset = 1 << (bit_id +2);
+    end
+  endfunction
+
+
   `include "riscv_assembly.v"
   // ******************code here**************
-  integer L0_   = 8;
-  integer wait_ = 32;
-  integer L1_   = 40;
+
+  integer    L0_      = 12;
+  integer    L1_      = 20;
+  integer    L2_      = 52;
+  integer    wait_    = 104;
+  integer    wait_L0_ = 112;
+  integer    putc_    = 124;
+  integer    putc_L0_ = 132;
 
   initial begin
-      LI(s0,0);
-      LI(s1,16);
+
+    LI(sp,32'h1800);   // End of RAM, 6kB
+    LI(gp,32'h400000); // IO page
+
     Label(L0_);
-      LB(a0,s0,400); // LEDs are plugged on a0 (=x10)
+
+      // Count from 0 to 15 on the LEDs
+      LI(s0,16); // upper bound of loop
+      LI(a0,0);
+    Label(L1_);
+      SW(a0,gp,io_bit_offset(io_led_bit));
       CALL(LabelRef(wait_));
-      ADDI(s0,s0,1);
-      BNE(s0,s1, LabelRef(L0_));
-      EBREAK();
+      ADDI(a0,a0,1);
+      BNE(a0,s0,LabelRef(L1_));
+
+      // Send abcdef...xyz to the UART
+      LI(s0,26); // upper bound of loop
+      LI(a0,"a");
+      LI(s1,0);
+    Label(L2_);
+      CALL(LabelRef(putc_));
+      ADDI(a0,a0,1);
+      ADDI(s1,s1,1);
+      BNE(s1,s0,LabelRef(L2_));
+
+      // CR;LF
+      LI(a0,13);
+      CALL(LabelRef(putc_));
+      LI(a0,10);
+      CALL(LabelRef(putc_));
+
+      J(LabelRef(L0_));
+
+      EBREAK(); // I systematically keep it before functions
+                // in case I decide to remove the loop...
 
     Label(wait_);
       LI(t0,1);
       SLLI(t0,t0,slow_bit);
-    Label(L1_);
+    Label(wait_L0_);
       ADDI(t0,t0,-1);
-      BNEZ(t0,LabelRef(L1_));
+      BNEZ(t0,LabelRef(wait_L0_));
+      RET();
+
+    Label(putc_);
+      // Send character to UART
+      SW(a0,gp,io_bit_offset(io_uart_dbit));
+      // Read UART status, and loop until bit 9 (busy sending)
+      // is zero.
+      LI(t0,1<<9);
+    Label(putc_L0_);
+      LW(t1,gp,io_bit_offset(io_uart_cbit));
+      AND(t1,t1,t0);
+      BNEZ(t1,LabelRef(putc_L0_));
       RET();
 
       endASM();
-    end
+  end
   // *****************************************
 
   wire [29:0] word_addr = mem_addr[31:2];
 
   always @ ( posedge clk ) begin
     if (mem_rstrb) begin
-      mem_rdata <= mem[mem_addr[31:2]];
+      mem_rdata <= mem[word_addr];
     end
 
   if (mem_wmask[0]) mem[word_addr][ 7:0 ] <= mem_wdata [ 7:0 ];
@@ -67,7 +127,7 @@ module Processor (
   input      [31:0] mem_rdata,
   output     [31:0] mem_addr,
   output            mem_rstrb,
-  output reg [31:0] proc_out_reg,
+  //output reg [31:0] proc_out_reg,
   output     [ 3:0] mem_wmask,
   output     [31:0] mem_wdata
   );
@@ -197,15 +257,16 @@ module Processor (
   assign writeback_data = (is_JAL ||is_JALR) ? (pc_plus_4)    :
                           is_LUI             ? imm            :
                           is_AUIPC           ? (pc_plus_imm)  :
+                          is_LOAD            ? load_data      :
                           alu_out
   ;
-  assign writeback_en = (state == execute && (is_OP  ||
-                                              is_OPIM ||
-                                              is_JAL  ||
-                                              is_JALR ||
-                                              is_LUI  ||
-                                              is_AUIPC))
-  ;
+  // assign writeback_en = (state == execute && (is_OP  ||
+  //                                             is_OPIM ||
+  //                                             is_JAL  ||
+  //                                             is_JALR ||
+  //                                             is_LUI  ||
+  //                                             is_AUIPC))
+  // ;
 
   // Load
   wire [31:0] loadstore_addr = src1_value + imm;
@@ -278,9 +339,9 @@ module Processor (
         begin
           register_bank[rd] <= writeback_data;
           // Output of register x1
-          if(rd == 10 ) begin
-            proc_out_reg <= writeback_data;
-          end
+          // if(rd == 10 ) begin
+          //   proc_out_reg <= writeback_data;
+          // end
           //  Bench to display value stored at end of instruction
           // `ifdef BENCH
           //   $display("x%0d <= %d",rd,writeback_data);
@@ -307,7 +368,10 @@ module Processor (
           if (!is_SYSTEM) begin
             pc <= next_pc;
           end
-          state <= fetch_instr;
+          state <= is_LOAD  ? load_state  :
+                   is_STORE ? store_state :
+                              fetch_instr
+          ;
 
           `ifdef BENCH
            if(is_SYSTEM) $finish();
@@ -329,7 +393,8 @@ module Processor (
     end
   end
 
-  assign mem_addr  = (state == wait_instr || state == fetch_instr) ? pc :loadstore_addr ;
+  assign writeback_en = (state== execute && !is_BRANCH && !is_STORE) || (state == wait_data);
+  assign mem_addr  = (state == wait_instr  || state == fetch_instr) ? pc :loadstore_addr ;
   assign mem_rstrb = (state == fetch_instr || state == load_state);
   assign mem_wmask = {4{(state == store_state)}} & store_mask;
 
@@ -399,7 +464,7 @@ endmodule //processor
 module SOC (
     input  CLK,        // system clock
     input  RESET,      // reset button
-    output [3:0] LEDS, // system LEDs
+    output reg [3:0] LEDS, // system LEDs
     input  RXD,        // UART receive
     output TXD         // UART transmit
   );
@@ -410,18 +475,9 @@ module SOC (
   wire [31:0] mem_addr;
   wire [31:0] mem_rdata;
   wire mem_rstrb;
-  wire [31:0] proc_out;
+  // wire [31:0] proc_out;
   wire [31:0] mem_wdata;
   wire [3:0]  mem_wmask;
-
-  Memory RAM(
-    .clk(clk),
-    .mem_addr(mem_addr),
-    .mem_rdata(mem_rdata),
-    .mem_rstrb(mem_rstrb),
-    .mem_wdata(mem_wdata),
-    .mem_wmask(mem_wmask)
-  );
 
   Processor CPU(
     .clk(clk),
@@ -430,9 +486,66 @@ module SOC (
     .mem_rdata(mem_rdata),
     .mem_rstrb(mem_rstrb),
     .mem_wdata(mem_wdata),
-    .mem_wmask(mem_wmask),
-    .proc_out_reg(proc_out)
+    .mem_wmask(mem_wmask)
+    // .proc_out_reg(proc_out)
   );
+
+  wire [31:0] ram_rdata;
+  wire [29:0] mem_wordaddr = mem_addr[31:2];
+  wire is_io = mem_addr[22];
+  wire is_ram = !is_io;
+  wire mem_wstrb = |mem_wmask;   //bitwise or entire bus
+
+  Memory RAM(
+    .clk(clk),
+    .mem_addr(mem_addr),
+    .mem_rdata(ram_rdata),
+    .mem_rstrb(is_ram & mem_rstrb),
+    .mem_wdata(mem_wdata),
+    .mem_wmask({4{is_ram}} & mem_wmask)
+  );
+
+  // Memory-mapped IO in IO page, 1-hot addressing in word address.
+  localparam  io_led_bit   = 0;  // write led bits
+  localparam  io_uart_dbit = 1;  // write data to send 8 bits
+  localparam  io_uart_cbit = 2;  // Read Status
+
+  always @ (posedge clk) begin
+    if(is_io & mem_wstrb & mem_wordaddr[io_led_bit]) begin
+      LEDS <= mem_wdata;
+    end
+  end
+
+  wire uart_valid = is_io & mem_wstrb & mem_wordaddr[io_uart_dbit];
+  wire uart_ready;
+
+  corescore_emitter_uart #(
+    .clk_freq_hz(2 *1000000),
+    .baud_rate(1000000)
+  ) UART(
+    .i_clk(clk),
+    .i_rst(reset),
+    .i_data(mem_wdata[7:0]),
+    .i_valid(uart_valid),
+    .o_ready(uart_ready),
+    .o_uart_tx(TXD)
+  );
+
+  wire [31:0] io_rdata =
+        mem_wordaddr[io_uart_cbit] ? {22'b0 , !uart_ready , 9'b0}
+                                   : 32'b0
+  ;
+
+  assign mem_rdata = is_ram ? ram_rdata : io_rdata ;
+
+  `ifdef BENCH
+    always @ (posedge clk) begin
+      if(uart_valid)begin
+        $write("%c" , mem_wdata[7:0]);
+        $fflush(32'h8000_0001);
+      end
+    end
+  `endif
 
   Clockworks CW(
       .CLK(CLK),
@@ -441,7 +554,7 @@ module SOC (
       .reset(reset)
   );
 
-  assign LEDS = proc_out[3:0];
-  assign TXD  = 1'b0;
+  //assign LEDS = proc_out[3:0];
+  //assign TXD  = 1'b0;
 
 endmodule
