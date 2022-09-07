@@ -1,6 +1,5 @@
 `include "includes/clockworks.v"
 `include "includes/emitter_uart.v"
-
 `include "includes/defines.v"
 
 module Memory (

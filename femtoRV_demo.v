@@ -4,8 +4,8 @@
  */
 
 `default_nettype none
-`include "clockworks.v"
-`include "emitter_uart.v"
+`include "includes/clockworks.v"
+`include "includes/emitter_uart.v"
 
 module Memory (
    input             clk,
@@ -37,7 +37,7 @@ module Memory (
       end
    endfunction
 
-`include "riscv_assembly.v"
+`include "includes/riscv_assembly.v"
    integer    L0_      = 12;
    integer    L1_      = 20;
    integer    L2_      = 52;
