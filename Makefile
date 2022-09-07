@@ -72,7 +72,7 @@ clean:
 	rm -rf ./a.out
 
 bench:
-	iverilog -DBENCH -DBOARD_FREQ=10 bench_iverilog.v ${file}
+	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 bench_iverilog.v ${file}
 
 run_bench:
 	vvp a.out

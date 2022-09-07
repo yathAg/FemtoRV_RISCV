@@ -4,7 +4,7 @@
  * Bruno Levy, March 2022
  */
 
-// Machine code will be generated in mem,
+// Machine code will be generated in MEM,
 // starting from address 0 (can be changed below,
 // initial value of memPC).
 //
@@ -12,7 +12,7 @@
 //
 // module MyModule( my inputs, my outputs ...);
 //    ...
-//    reg [31:0] mem [0:255];
+//    reg [31:0] MEM [0:255];
 //    `include "riscv_assembly.v" // yes, needs to be included from here.
 //    integer L0_;
 //    initial begin
@@ -57,7 +57,8 @@ localparam x0 = 0, x1 = 1, x2 = 2, x3 = 3, x4 = 4, x5 = 5, x6 = 6, x7 = 7,
            x24=24, x25=25, x26=26, x27=27, x28=28, x29=29, x30=30, x31=31;
 
 
-localparam [31:0] NOP_CODEOP = 32'b0000000_00000_00000_000_00000_0110011; // add x0,x0,x0
+// add x0,x0,x0
+localparam [31:0] NOP_CODEOP = 32'b0000000_00000_00000_000_00000_0110011;
 
 /***************************************************************************/
 
@@ -74,7 +75,7 @@ task RType;
    input [2:0] funct3;
    input [6:0] funct7;
    begin
-      mem[memPC[31:2]] = {funct7, rs2, rs1, funct3, rd, opcode};
+      MEM[memPC[31:2]] = {funct7, rs2, rs1, funct3, rd, opcode};
       memPC = memPC + 4;
    end
 endtask
@@ -163,7 +164,7 @@ task IType;
    input [31:0] imm;
    input [2:0]  funct3;
    begin
-      mem[memPC[31:2]] = {imm[11:0], rs1, funct3, rd, opcode};
+      MEM[memPC[31:2]] = {imm[11:0], rs1, funct3, rd, opcode};
       memPC = memPC + 4;
    end
 endtask
@@ -263,7 +264,7 @@ task JType;
    input [4:0]  rd;
    input [31:0] imm;
    begin
-      mem[memPC[31:2]] = {imm[20], imm[10:1], imm[11], imm[19:12], rd, opcode};
+      MEM[memPC[31:2]] = {imm[20], imm[10:1], imm[11], imm[19:12], rd, opcode};
       memPC = memPC + 4;
    end
 endtask
@@ -300,7 +301,7 @@ task BType;
    input [31:0] imm;
    input [2:0]  funct3;
    begin
-      mem[memPC[31:2]] = {imm[12],imm[10:5], rs2, rs1, funct3, imm[4:1], imm[11], opcode};
+      MEM[memPC[31:2]] = {imm[12],imm[10:5], rs2, rs1, funct3, imm[4:1], imm[11], opcode};
       memPC = memPC + 4;
    end
 endtask
@@ -370,7 +371,7 @@ task UType;
    input [4:0]  rd;
    input [31:0] imm;
    begin
-      mem[memPC[31:2]] = {imm[31:12], rd, opcode};
+      MEM[memPC[31:2]] = {imm[31:12], rd, opcode};
       memPC = memPC + 4;
    end
 endtask
@@ -455,7 +456,7 @@ task SType;
    input [31:0] imm;
    input [2:0]  funct3;
    begin
-      mem[memPC[31:2]] = {imm[11:5], rs2, rs1, funct3, imm[4:0], opcode};
+      MEM[memPC[31:2]] = {imm[11:5], rs2, rs1, funct3, imm[4:0], opcode};
       memPC = memPC + 4;
    end
 endtask
@@ -503,28 +504,28 @@ task FENCE;
    input [3:0] pred;
    input [3:0] succ;
    begin
-      mem[memPC[31:2]] = {4'b0000, pred, succ, 5'b00000, 3'b000, 5'b00000, 7'b1110011};
+      MEM[memPC[31:2]] = {4'b0000, pred, succ, 5'b00000, 3'b000, 5'b00000, 7'b1110011};
       memPC = memPC + 4;
    end
 endtask
 
 task FENCE_I;
    begin
-      mem[memPC[31:2]] = {4'b0000, 4'b0000, 4'b0000, 5'b00000, 3'b001, 5'b00000, 7'b1110011};
+      MEM[memPC[31:2]] = {4'b0000, 4'b0000, 4'b0000, 5'b00000, 3'b001, 5'b00000, 7'b1110011};
       memPC = memPC + 4;
    end
 endtask
 
 task ECALL;
    begin
-      mem[memPC[31:2]] = {12'b000000000000, 5'b00000, 3'b000, 5'b00000, 7'b1110011};
+      MEM[memPC[31:2]] = {12'b000000000000, 5'b00000, 3'b000, 5'b00000, 7'b1110011};
       memPC = memPC + 4;
    end
 endtask
 
 task EBREAK;
    begin
-      mem[memPC[31:2]] = {12'b000000000001, 5'b00000, 3'b000, 5'b00000, 7'b1110011};
+      MEM[memPC[31:2]] = {12'b000000000001, 5'b00000, 3'b000, 5'b00000, 7'b1110011};
       memPC = memPC + 4;
    end
 endtask
@@ -534,7 +535,7 @@ task CSRRW;
    input [11:0] csr;
    input [4:0] rs1;
    begin
-      mem[memPC[31:2]] = {csr, rs1, 3'b001, rd, 7'b1110011};
+      MEM[memPC[31:2]] = {csr, rs1, 3'b001, rd, 7'b1110011};
       memPC = memPC + 4;
    end
 endtask
@@ -544,7 +545,7 @@ task CSRRS;
    input [11:0] csr;
    input [4:0] rs1;
    begin
-      mem[memPC[31:2]] = {csr, rs1, 3'b010, rd, 7'b1110011};
+      MEM[memPC[31:2]] = {csr, rs1, 3'b010, rd, 7'b1110011};
       memPC = memPC + 4;
    end
 endtask
@@ -554,7 +555,7 @@ task CSRRC;
    input [11:0] csr;
    input [4:0] rs1;
    begin
-      mem[memPC[31:2]] = {csr, rs1, 3'b011, rd, 7'b1110011};
+      MEM[memPC[31:2]] = {csr, rs1, 3'b011, rd, 7'b1110011};
       memPC = memPC + 4;
    end
 endtask
@@ -564,7 +565,7 @@ task CSRRWI;
    input [11:0] csr;
    input [31:0] imm;
    begin
-      mem[memPC[31:2]] = {csr, imm[4:0], 3'b101, rd, 7'b1110011};
+      MEM[memPC[31:2]] = {csr, imm[4:0], 3'b101, rd, 7'b1110011};
       memPC = memPC + 4;
    end
 endtask
@@ -574,7 +575,7 @@ task CSRRSI;
    input [11:0] csr;
    input [31:0] imm;
    begin
-      mem[memPC[31:2]] = {csr, imm[4:0], 3'b110, rd, 7'b1110011};
+      MEM[memPC[31:2]] = {csr, imm[4:0], 3'b110, rd, 7'b1110011};
       memPC = memPC + 4;
    end
 endtask
@@ -584,7 +585,7 @@ task CSRRCI;
    input [11:0] csr;
    input [31:0] imm;
    begin
-      mem[memPC[31:2]] = {csr, imm[4:0], 3'b111, rd, 7'b1110011};
+      MEM[memPC[31:2]] = {csr, imm[4:0], 3'b111, rd, 7'b1110011};
       memPC = memPC + 4;
    end
 endtask
@@ -782,7 +783,7 @@ endtask
 task DATAW;
    input [31:0] w;
    begin
-      mem[memPC[31:2]] = w;
+      MEM[memPC[31:2]] = w;
       memPC = memPC+4;
    end
 endtask
@@ -793,10 +794,10 @@ task DATAB;
    input [7:0] b3;
    input [7:0] b4;
    begin
-      mem[memPC[31:2]][ 7: 0] = b1;
-      mem[memPC[31:2]][15: 8] = b2;
-      mem[memPC[31:2]][23:16] = b3;
-      mem[memPC[31:2]][31:24] = b4;
+      MEM[memPC[31:2]][ 7: 0] = b1;
+      MEM[memPC[31:2]][15: 8] = b2;
+      MEM[memPC[31:2]][23:16] = b3;
+      MEM[memPC[31:2]][31:24] = b4;
       memPC = memPC+4;
    end
 endtask

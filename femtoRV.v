@@ -12,7 +12,7 @@ module Memory (
   input       [3:0]  mem_wmask      // Mask for writing the 4 Bytes
   );
 
-  reg [31:0] mem [0:1535];
+  reg [31:0] MEM [0:1535];
 
   `ifdef BENCH
     localparam slow_bit=12;
@@ -110,13 +110,13 @@ module Memory (
 
   always @ ( posedge clk ) begin
     if (mem_rstrb) begin
-      mem_rdata <= mem[word_addr];
+      mem_rdata <= MEM[word_addr];
     end
 
-  if (mem_wmask[0]) mem[word_addr][ 7:0 ] <= mem_wdata [ 7:0 ];
-  if (mem_wmask[1]) mem[word_addr][15:8 ] <= mem_wdata [15:8 ];
-  if (mem_wmask[2]) mem[word_addr][23:16] <= mem_wdata [23:16];
-  if (mem_wmask[3]) mem[word_addr][31:24] <= mem_wdata [31:24];
+  if (mem_wmask[0]) MEM[word_addr][ 7:0 ] <= mem_wdata [ 7:0 ];
+  if (mem_wmask[1]) MEM[word_addr][15:8 ] <= mem_wdata [15:8 ];
+  if (mem_wmask[2]) MEM[word_addr][23:16] <= mem_wdata [23:16];
+  if (mem_wmask[3]) MEM[word_addr][31:24] <= mem_wdata [31:24];
 
   end
 endmodule // memory
@@ -156,18 +156,18 @@ module Processor (
   wire [31:0] J_imm = {{12{instr[31]}}, instr[19:12], instr[20]    , instr[30:21],1'b0};
 
   // immdiate validity
-  wire is_i_instr = is_LOAD || is_OPIM || is_JALR;
-  wire is_u_instr = is_LUI || is_AUIPC ;
-  wire is_s_instr = is_STORE ;
-  wire is_b_instr = is_BRANCH ;
-  wire is_j_instr = is_JAL;
-
-  wire [31:0] imm  = is_i_instr ? {{21{instr[31]}}, instr[30:20]  }:
-                     is_s_instr ? {{21{instr[31]}}, instr[30:25], instr[11:7] }:
-                     is_b_instr ? {{20{instr[31]}}, instr[7],     instr[30:25] , instr[11:8],1'b0}:
-                     is_u_instr ? {    instr[31],   instr[30:12], {12{1'b0}}  }:
-                     is_j_instr ? {{12{instr[31]}}, instr[19:12], instr[20]    , instr[30:21],1'b0}:
-                     32'b0;
+  // wire is_i_instr = is_LOAD || is_OPIM || is_JALR;
+  // wire is_u_instr = is_LUI || is_AUIPC ;
+  // wire is_s_instr = is_STORE ;
+  // wire is_b_instr = is_BRANCH ;
+  // wire is_j_instr = is_JAL;
+  //
+  // wire [31:0] imm  = is_i_instr ? {{21{instr[31]}}, instr[30:20]  }:
+  //                    is_s_instr ? {{21{instr[31]}}, instr[30:25], instr[11:7] }:
+  //                    is_b_instr ? {{20{instr[31]}}, instr[7],     instr[30:25] , instr[11:8],1'b0}:
+  //                    is_u_instr ? {    instr[31],   instr[30:12], {12{1'b0}}  }:
+  //                    is_j_instr ? {{12{instr[31]}}, instr[19:12], instr[20]    , instr[30:21],1'b0}:
+  //                    32'b0;
 
   // instruction fields
   wire [4:0] rs1 = instr[19:15];
@@ -200,8 +200,8 @@ module Processor (
   // ALU Registers
   reg  [31:0] alu_out;
   wire [31:0] alu_in1 = src1_value;
-  wire [31:0] alu_in2 = is_OP | is_BRANCH ? src2_value : imm;
-  wire [ 4:0] shamt   = is_OP ? src2_value : instr[24:20];
+  wire [31:0] alu_in2 = is_OP | is_BRANCH ? src2_value : I_imm;  //imm
+  wire [ 4:0] shamt   = is_OP ? src2_value[4:0] : instr[24:20];
 
   // Adder
   wire [31:0] alu_plus = alu_in1 + alu_in2;
@@ -241,12 +241,20 @@ module Processor (
   end
 
   // Next pc
-  wire [31:0] pc_plus_imm = pc + imm;
+  // wire [31:0] pc_plus_imm = pc + imm;
+
+  wire [31:0] pc_plus_imm = pc + (instr[3] ? J_imm[31:0] :
+                                  instr[4] ? U_imm[31:0] :
+                                             B_imm[31:0]
+
+
+  );
+
   wire [31:0] pc_plus_4   = pc + 32'd4;
 
   wire[31:0] next_pc = (is_BRANCH && take_branch) ? pc_plus_imm :
                        is_JAL                     ? pc_plus_imm :
-                       is_JALR                    ? src1_value + imm :
+                       is_JALR                    ? {alu_plus[31:1],1'b0} :
                        pc_plus_4
   ;
 
@@ -255,7 +263,7 @@ module Processor (
   wire        writeback_en;
 
   assign writeback_data = (is_JAL ||is_JALR) ? (pc_plus_4)    :
-                          is_LUI             ? imm            :
+                          is_LUI             ? U_imm         :  // imm
                           is_AUIPC           ? (pc_plus_imm)  :
                           is_LOAD            ? load_data      :
                           alu_out
@@ -269,7 +277,9 @@ module Processor (
   // ;
 
   // Load
-  wire [31:0] loadstore_addr = src1_value + imm;
+  // wire [31:0] loadstore_addr = src1_value + imm;
+  wire [31:0] loadstore_addr = src1_value + (is_STORE ? S_imm : I_imm);
+
 
   wire mem_byte_access      = funct3[1:0] == 2'b00;
   wire mem_halfword_access  = funct3[1:0] == 2'b01;
@@ -330,6 +340,7 @@ module Processor (
   always @(posedge clk) begin
     //  Reset
     if(reset) begin
+      $display("false trigger");
       pc <= 0;
       state <= fetch_instr;
     end
