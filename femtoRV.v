@@ -126,7 +126,6 @@ module Processor (
   input      [31:0] mem_rdata,
   output     [31:0] mem_addr,
   output            mem_rstrb,
-  //output reg [31:0] proc_out_reg,
   output     [ 3:0] mem_wmask,
   output     [31:0] mem_wdata
   );
@@ -155,18 +154,18 @@ module Processor (
   wire [31:0] J_imm = {{12{instr[31]}}, instr[19:12], instr[20]    , instr[30:21],1'b0};
 
   // immdiate validity
-  // wire is_i_instr = is_LOAD || is_OPIM || is_JALR;
-  // wire is_u_instr = is_LUI || is_AUIPC ;
-  // wire is_s_instr = is_STORE ;
-  // wire is_b_instr = is_BRANCH ;
-  // wire is_j_instr = is_JAL;
-  //
-  // wire [31:0] imm  = is_i_instr ? {{21{instr[31]}}, instr[30:20]  }:
-  //                    is_s_instr ? {{21{instr[31]}}, instr[30:25], instr[11:7] }:
-  //                    is_b_instr ? {{20{instr[31]}}, instr[7],     instr[30:25] , instr[11:8],1'b0}:
-  //                    is_u_instr ? {    instr[31],   instr[30:12], {12{1'b0}}  }:
-  //                    is_j_instr ? {{12{instr[31]}}, instr[19:12], instr[20]    , instr[30:21],1'b0}:
-  //                    32'b0;
+  wire is_i_instr = is_LOAD || is_OPIM || is_JALR;
+  wire is_u_instr = is_LUI || is_AUIPC ;
+  wire is_s_instr = is_STORE ;
+  wire is_b_instr = is_BRANCH ;
+  wire is_j_instr = is_JAL;
+
+  wire [31:0] imm  = is_i_instr ? {{21{instr[31]}}, instr[30:20]  }:
+                     is_s_instr ? {{21{instr[31]}}, instr[30:25], instr[11:7] }:
+                     is_b_instr ? {{20{instr[31]}}, instr[7],     instr[30:25] , instr[11:8],1'b0}:
+                     is_u_instr ? {    instr[31],   instr[30:12], {12{1'b0}}  }:
+                     is_j_instr ? {{12{instr[31]}}, instr[19:12], instr[20]    , instr[30:21],1'b0}:
+                     32'b0;
 
   // instruction fields
   wire [4:0] rs1 = instr[19:15];
@@ -179,7 +178,7 @@ module Processor (
   wire [10:0] dec_bits = {instr[30],funct3,opcode};
 
   // The registers bank
-  reg [15:0] register_bank [0:31];
+  reg [31:0] register_bank [0:31];
 
   // Initialize registers to 0
   `ifdef BENCH
@@ -199,7 +198,7 @@ module Processor (
   // ALU Registers
   reg  [31:0] alu_out;
   wire [31:0] alu_in1 = src1_value;
-  wire [31:0] alu_in2 = is_OP | is_BRANCH ? src2_value : I_imm;  //imm
+  wire [31:0] alu_in2 = is_OP | is_BRANCH ? src2_value : imm;  //imm
   wire [ 4:0] shamt   = is_OP ? src2_value[4:0] : instr[24:20];
 
   // Adder
@@ -240,16 +239,9 @@ module Processor (
   end
 
   // Next pc
-  // wire [31:0] pc_plus_imm = pc + imm;
+  wire [31:0] pc_plus_imm = pc + imm;
 
-  wire [31:0] pc_plus_imm = pc + (instr[3] ? J_imm[31:0] :
-                                  instr[4] ? U_imm[31:0] :
-                                             B_imm[31:0]
-
-
-  );
-
-  wire [31:0] pc_plus_4   = pc + 4;
+  wire [31:0] pc_plus_4   = pc + 32'd4;
 
   wire[31:0] next_pc = (is_BRANCH && take_branch) ? pc_plus_imm :
                        is_JAL                     ? pc_plus_imm :
@@ -262,23 +254,13 @@ module Processor (
   wire        writeback_en;
 
   assign writeback_data = (is_JAL ||is_JALR) ? (pc_plus_4)   :
-                          is_LUI             ? U_imm         :  // imm
+                          is_LUI             ? imm           :
                           is_AUIPC           ? pc_plus_imm   :
                           is_LOAD            ? load_data     :
                           alu_out
   ;
-  // assign writeback_en = (state == execute && (is_OP  ||
-  //                                             is_OPIM ||
-  //                                             is_JAL  ||
-  //                                             is_JALR ||
-  //                                             is_LUI  ||
-  //                                             is_AUIPC))
-  // ;
 
-  // Load
-  // wire [31:0] loadstore_addr = src1_value + imm;
-  wire [31:0] loadstore_addr = src1_value + (is_STORE ? S_imm : I_imm);
-
+  wire [31:0] loadstore_addr = src1_value + imm;
 
   wire mem_byte_access      = funct3[1:0] == 2'b00;
   wire mem_halfword_access  = funct3[1:0] == 2'b01;
@@ -294,7 +276,6 @@ module Processor (
   ;
 
   // Store
-
   // 31 : 24 | 23 : 16 | 15 : 8 | 7 : 0
 
   //                              [7:0]   byte 00
@@ -306,7 +287,6 @@ module Processor (
   //  [15:8]    [7:0]                     hw   10
 
   //  [31:26]  [23:16]  [15:8]  [7:0]     w    00
-
 
   assign mem_wdata[ 7:0 ] = src2_value[7:0];
   assign mem_wdata[15:8 ] = loadstore_addr[0] ? src2_value[ 7:0] : src2_value[15:8 ];
@@ -339,7 +319,6 @@ module Processor (
   always @(posedge clk) begin
     //  Reset
     if(reset) begin
-      $display("false trigger");
       pc <= 0;
       state <= fetch_instr;
     end
@@ -348,14 +327,6 @@ module Processor (
       if(writeback_en && rd != 0)
         begin
           register_bank[rd] <= writeback_data;
-          // Output of register x1
-          // if(rd == 10 ) begin
-          //   proc_out_reg <= writeback_data;
-          // end
-          //  Bench to display value stored at end of instruction
-          // `ifdef BENCH
-          //   $display("x%0d <= %d",rd,writeback_data);
-          // `endif
         end
 
       case(state)
@@ -485,7 +456,6 @@ module SOC (
   wire [31:0] mem_addr;
   wire [31:0] mem_rdata;
   wire mem_rstrb;
-  // wire [31:0] proc_out;
   wire [31:0] mem_wdata;
   wire [3:0]  mem_wmask;
 
@@ -497,7 +467,6 @@ module SOC (
     .mem_rstrb(mem_rstrb),
     .mem_wmask(mem_wmask),
     .mem_wdata(mem_wdata)
-    // .proc_out_reg(proc_out)
   );
 
   wire [31:0] ram_rdata;
@@ -563,8 +532,5 @@ module SOC (
       .clk(clk),
       .reset(reset)
   );
-
-  //assign LEDS = proc_out[3:0];
-  //assign TXD  = 1'b0;
 
 endmodule
