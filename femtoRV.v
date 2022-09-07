@@ -1,7 +1,7 @@
-`include "clockworks.v"
-`include "emitter_uart.v"
+`include "includes/clockworks.v"
+`include "includes/emitter_uart.v"
 
-`include "defines.v"
+`include "includes/defines.v"
 
 module Memory (
   input              clk,
@@ -17,7 +17,7 @@ module Memory (
   `ifdef BENCH
     localparam slow_bit=12;
   `else
-    localparam slow_bit=15;
+    localparam slow_bit=17;
   `endif
 
   // Memory-mapped IO in IO page, 1-hot addressing in word address.
@@ -34,7 +34,7 @@ module Memory (
   endfunction
 
 
-  `include "riscv_assembly.v"
+  `include "includes/riscv_assembly.v"
   // ******************code here**************
 
   integer    L0_      = 12;
@@ -250,7 +250,7 @@ module Processor (
 
   );
 
-  wire [31:0] pc_plus_4   = pc + 32'd4;
+  wire [31:0] pc_plus_4   = pc + 4;
 
   wire[31:0] next_pc = (is_BRANCH && take_branch) ? pc_plus_imm :
                        is_JAL                     ? pc_plus_imm :
@@ -262,10 +262,10 @@ module Processor (
   wire [31:0] writeback_data;
   wire        writeback_en;
 
-  assign writeback_data = (is_JAL ||is_JALR) ? (pc_plus_4)    :
+  assign writeback_data = (is_JAL ||is_JALR) ? (pc_plus_4)   :
                           is_LUI             ? U_imm         :  // imm
-                          is_AUIPC           ? (pc_plus_imm)  :
-                          is_LOAD            ? load_data      :
+                          is_AUIPC           ? pc_plus_imm   :
+                          is_LOAD            ? load_data     :
                           alu_out
   ;
   // assign writeback_en = (state == execute && (is_OP  ||
@@ -318,11 +318,11 @@ module Processor (
 
   wire [3:0] store_mask =
     (mem_byte_access) ?
-      (loadstore_addr[1]   ?
+        (loadstore_addr[1]   ?
         (loadstore_addr[0] ? 4'b1000 : 4'b0100) :   // 11  10
         (loadstore_addr[0] ? 4'b0010 : 4'b0001)     // 01  00
-      ):
-      mem_halfword_access  ?
+        ):
+    mem_halfword_access  ?
         (loadstore_addr[1] ? 4'b1100 : 4'b0011) :   // 10 00
         4'b1111
   ;
@@ -531,7 +531,7 @@ module SOC (
   wire uart_ready;
 
   corescore_emitter_uart #(
-    .clk_freq_hz(2 *1000000),
+    .clk_freq_hz(10*1000000),
     .baud_rate(1000000)
   ) UART(
     .i_clk(clk),
