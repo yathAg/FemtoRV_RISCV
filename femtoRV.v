@@ -16,7 +16,7 @@ module Memory (
   `ifdef BENCH
     localparam slow_bit=12;
   `else
-    localparam slow_bit=17;
+    localparam slow_bit=19;
   `endif
 
   // Memory-mapped IO in IO page, 1-hot addressing in word address.

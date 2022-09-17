@@ -1,5 +1,7 @@
-//`include "femtopll.v"
-
+`ifdef BENCH
+`else
+  `include "femtopll.v"
+`endif
 
 module Clockworks
 (
@@ -9,40 +11,23 @@ module Clockworks
                  // divided if SLOW is different from zero.
    output reset // (optionally timed) negative reset for the design
 );
-  parameter SLOW=0;
 
   generate
-
-  //  if(SLOW != 0) begin
-      `ifdef BENCH
-        localparam slow_bit=SLOW-4;
-      `else
-        localparam slow_bit=SLOW;
-      `endif
-
-      reg [slow_bit:0] slow_CLK = 0;
-      always @(posedge CLK)
-      begin
-      	slow_CLK <= slow_CLK + 1;
-      end
-
-      assign clk = slow_CLK[slow_bit];
+    `ifdef BENCH
+      assign clk = CLK;
       assign reset = RESET;
+    `else begin
+      femtoPLL #(
+        .freq(100)
+      ) pll(
+        .pclk(CLK),
+        .clk(clk)
+      );
+      assign reset = RESET;
+      end
+    `endif
+    // else
 
-    //end
-
-    // else begin
-    //   `ifdef CPU_FREQ
-    //           femtoPLL #(
-    //             .freq(`CPU_FREQ)
-    //           ) pll(
-    //              .pclk(CLK),
-    //              .clk(clk)
-    //   	);
-    //   `else
-    //           assign clk=CLK;
-    //   `endif
-    //
     // 	reg [15:0] 	    reset_cnt = 0;
     // 	assign reset = &reset_cnt;
     //
@@ -58,8 +43,5 @@ module Clockworks
     // 	    end
     // 	end
     // end
-
-
   endgenerate
-
 endmodule
