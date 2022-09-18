@@ -449,13 +449,13 @@ module SOC (
     output TXD         // UART transmit
   );
 
-  wire clk_out;
+  wire clkout;
   wire reset;
 
   Clockworks CW(
       .CLK(CLK),
       .RESET(RESET),
-      .clk(clk_out),
+      .clk(clkout),
       .reset(reset)
   );
 
@@ -466,7 +466,7 @@ module SOC (
   wire [3:0]  mem_wmask;
 
   Processor CPU(
-    .clk(clk_out),
+    .clk(clkout),
     .reset(reset),
     .mem_rdata(mem_rdata),
     .mem_addr(mem_addr),
@@ -482,7 +482,7 @@ module SOC (
   wire mem_wstrb = |mem_wmask;   //bitwise or entire bus
 
   Memory RAM(
-    .clk(clk_out),
+    .clk(clkout),
     .mem_addr(mem_addr),
     .mem_rstrb(is_ram & mem_rstrb),
     .mem_rdata(ram_rdata),
@@ -495,7 +495,7 @@ module SOC (
   localparam  IO_UART_DAT_bit = 1;  // write data to send 8 bits
   localparam  IO_UART_CNTL_bit = 2;  // Read Status
 
-  always @ (posedge clk_out) begin
+  always @ (posedge clkout) begin
     if(is_io & mem_wstrb & mem_wordaddr[IO_LEDS_bit]) begin
       LEDS <= mem_wdata;
     end
@@ -508,7 +508,7 @@ module SOC (
     .clk_freq_hz(100*1000000),
     .baud_rate(1000000)
   ) UART(
-    .i_clk(clk_out),
+    .i_clk(clkout),
     .i_rst(reset),
     .i_data(mem_wdata[7:0]),
     .i_valid(uart_valid),
@@ -524,7 +524,7 @@ module SOC (
   assign mem_rdata = is_ram ? ram_rdata : io_rdata ;
 
   `ifdef BENCH
-    always @ (posedge clk_out) begin
+    always @ (posedge clkout) begin
       if(uart_valid)begin
         $write("%c" , mem_wdata[7:0]);
         $fflush(32'h8000_0001);
