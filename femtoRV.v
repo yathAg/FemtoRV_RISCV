@@ -452,6 +452,13 @@ module SOC (
   wire clk_out;
   wire reset;
 
+  Clockworks CW(
+      .CLK(CLK),
+      .RESET(RESET),
+      .clk(clk_out),
+      .reset(reset)
+  );
+
   wire [31:0] mem_addr;
   wire [31:0] mem_rdata;
   wire mem_rstrb;
@@ -524,12 +531,4 @@ module SOC (
       end
     end
   `endif
-
-  Clockworks CW(
-      .CLK(CLK),
-      .RESET(RESET),
-      .clk(clk_out),
-      .reset(reset)
-  );
-
 endmodule
