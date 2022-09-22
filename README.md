@@ -23,13 +23,27 @@ Based on his project, I have optimized it and implemented it on the ARTIX7 35T F
 
 ## Setting up the Required Software
 
-### F4pga
+### F4PGA
+*F4PGA is an end-to-end FPGA synthesis toolchain, because of that it provides all the necessary tools to convert input Hardware Description Language (HDL) sources into a final bitstream*
+
+![F4PGA Toolchain design flow](toolchain-flow.svg)
+
+[https://f4pga.readthedocs.io/en/latest/getting-started.html](https://f4pga.readthedocs.io/en/latest/getting-started.html)
 
 ### Icarus Verilog
+*Icarus Verilog is a Verilog simulation and synthesis tool. It operates as a compiler, compiling source code written in Verilog (IEEE-1364) into some target format. For batch simulation, the compiler can generate an intermediate form called vvp assembly*
+
+[http://iverilog.icarus.com/](http://iverilog.icarus.com/)
 
 ### Verilatior
+*Verilator is a free and open-source software tool which converts Verilog to a cycle-accurate behavioral model in C++ or SystemC.*
 
-### picocom
+[https://www.veripool.org/verilator/](https://www.veripool.org/verilator/)
+
+### Picocom
+*picocom is a minimal dumb-terminal emulation program*
+
+[https://linux.die.net/man/8/picocom](https://linux.die.net/man/8/picocom)
 
 ## File Description
 
