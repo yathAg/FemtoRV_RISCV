@@ -1,12 +1,47 @@
-# FemtoRV Artix 35T
+# FemtoRV - RISCV Processor on Artix 35T
 
-RISC-V is a free and open ISA enabling a new era of processor innovation through open standard collaboration.
+RISC-V is a free and open ISA enabling a new era of processor innovation through open standard collaboration. Recently it has gained popularity with major players like Intel, Apple, and NASA implementing RISC-V solutions.
 
-## Goals of the project
-- Understand the RISC V ISA
-- Port the project [FROM_BLINKER_TO_RISCV](https://github.com/BrunoLevy/learn-fpga/tree/master/FemtoRV/TUTORIALS/FROM_BLINKER_TO_RISCV) for the Artix 35T
-- Implement the RISC32VE core and use make a flight controller for hex-rotror VTOLS
+## Goals of the Project
+ 
+I'm a final year student pursuing my undergraduate in Electronics and communication engineering at Manipal Institue of Technology.
+Fascinated by Computer architecture and VLSI design, I came across RISC-V during the [Swadeshi microprocessor challenge.](https://shakti.org.in/sp2020-shakti.html) 
+
+The goal of this project is:
+- Implement the RISC32I ISA on a single-core processor with pipelining.
+- Apply the knowledge of computer architecture design and Verilog
+- Understand and explore the various toolchains and software required in ASIC and FPGA applications.
+- Implement optimizations for reducing required LUTS and increasing the performance of the core.
+- Use the developed core to implement a flight controller and interface with various sensors and actuators required.
 
 
+The work in the repository wouldn't be possible without @BrunoLevy and his work at [BrunoLevy/learn-fpga](https://github.com/BrunoLevy/learn-fpga)
+The project by him provides an excellent step-wise explanation of developing a RISC-V and serves as the base on which this project is created.
 
-All the credits to the content in this repository goes to @BrunoLevy and is based on his work at [BrunoLevy/learn-fpga](https://github.com/BrunoLevy/learn-fpga)
+Based on his project, I have optimized it and implemented it on the ARTIX7 35T FPGA using the F4PGA toolchain.
+
+
+## Setting up the Required Software
+
+### F4pga
+
+### Icarus Verilog
+
+### Verilatior
+
+### picocom
+
+## File Description
+
+    .
+    ├── Verilator                  # Sorce files requried for Verilator simulation
+    ├── Iclude                    
+    ├── arty.xdc                     
+    ├── bench_iverilog.v                    
+    ├── femtoRV.v                  
+    ├── run_verilator.sh
+    ├── sim_main.cpp
+    ├── terminal.sh
+    └── README.md
+
+
