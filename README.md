@@ -34,14 +34,14 @@ Based on his project, I have optimized it and implemented it on the ARTIX7 35T F
 ## File Description
 
     .
-    ├── Verilator                  # Sorce files requried for Verilator simulation
-    ├── Iclude                    
-    ├── arty.xdc                     
-    ├── bench_iverilog.v                    
-    ├── femtoRV.v                  
-    ├── run_verilator.sh
-    ├── sim_main.cpp
-    ├── terminal.sh
+    ├── Verilator                  # Source files requried for Verilator simulation
+    ├── Include                    # Header files
+    ├── arty.xdc                   # Constraint file for Artix7 35T  
+    ├── bench_iverilog.v           # Bench code for icarus verilog simulation        
+    ├── femtoRV.v                  # main verilog file with core
+    ├── run_verilator.sh           # Shell script to execute verilator simulation
+    ├── sim_main.cpp               # Cpp code for verilator simulation
+    ├── terminal.sh                # Shell script to open Serial terminal
     └── README.md
 
 
