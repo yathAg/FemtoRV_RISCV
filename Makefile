@@ -24,9 +24,6 @@ endif
 
 include ${current_dir}/includes/common.mk
 
-clean_sim:
-	rm -rf ./a.out
-
 bench:
 	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 bench_iverilog.v ${SOURCES}
 
