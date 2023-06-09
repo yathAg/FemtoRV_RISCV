@@ -3,17 +3,12 @@
 RISC-V is a free and open ISA enabling a new era of processor innovation through open standard collaboration. Recently it has gained popularity with major players like Intel, Apple, and NASA implementing RISC-V solutions.
 
 ## Goals of the Project
- 
-I'm a final year student pursuing my undergraduate in Electronics and communication engineering at Manipal Institue of Technology.
-Fascinated by Computer architecture and VLSI design, I came across RISC-V during the [Swadeshi microprocessor challenge.](https://shakti.org.in/sp2020-shakti.html) 
 
-The goal of this project is:
 - Implement the RISC32I ISA on a single-core processor with pipelining.
 - Apply the knowledge of computer architecture design and Verilog
 - Understand and explore the various toolchains and software required in ASIC and FPGA applications.
 - Implement optimizations for reducing required LUTS and increasing the performance of the core.
 - Use the developed core to implement a flight controller and interface with various sensors and actuators required.
-
 
 The work in the repository wouldn't be possible without @BrunoLevy and his work at [BrunoLevy/learn-fpga](https://github.com/BrunoLevy/learn-fpga)
 The project by him provides an excellent step-wise explanation of developing a RISC-V and serves as the base on which this project is created.
@@ -26,7 +21,7 @@ Based on his project, I have optimized it and implemented it on the ARTIX7 35T F
 ### F4PGA
 *F4PGA is an end-to-end FPGA synthesis toolchain, because of that it provides all the necessary tools to convert input Hardware Description Language (HDL) sources into a final bitstream*
 
-![F4PGA Toolchain design flow](toolchain-flow.svg)
+![F4PGA Toolchain design flow](resources/toolchain-flow.svg)
 
 [https://f4pga.readthedocs.io/en/latest/getting-started.html](https://f4pga.readthedocs.io/en/latest/getting-started.html)
 

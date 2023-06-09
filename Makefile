@@ -1,78 +1,34 @@
-TOP := SOC
-TARGET := arty_35
-
 current_dir := ${CURDIR}
-SOURCES := ${current_dir}/${file}
-XDC := ${current_dir}/arty.xdc
+TOP := SOC
+SOURCES := ${current_dir}/femtoRV.v
 
-BUILDDIR := ${current_dir}/build
-BOARD_BUILDDIR := ${BUILDDIR}/${TARGET}
-
-# Set board properties based on TARGET variable
 ifeq ($(TARGET),arty_35)
-  DEVICE := xc7a50t_test
-  BITSTREAM_DEVICE := artix7
-  PARTNAME := xc7a35tcsg324-1
-  OFL_BOARD := arty_a7_35t
+ifdef F4PGA_USE_DEPRECATED
+  XDC := ${current_dir}/arty.xdc
 else
- $(error Unsupported board type)
+build:
+	f4pga -vv build --flow ./flow.json
+endif
+else ifeq ($(TARGET),arty_100)
+  XDC := ${current_dir}/arty.xdc
+else ifeq ($(TARGET),nexys4ddr)
+  XDC := ${current_dir}/nexys4ddr.xdc
+else ifeq ($(TARGET),zybo)
+  XDC := ${current_dir}/zybo.xdc
+  SOURCES:=${current_dir}/counter_zynq.v
+else ifeq ($(TARGET),nexys_video)
+  XDC := ${current_dir}/nexys_video.xdc
+else ifeq ($(TARGET),basys3)
+  XDC := ${current_dir}/basys3.xdc
 endif
 
-# Determine the type of constraint being used
-ifneq (${XDC},)
-  XDC_CMD := -x ${XDC}
-endif
-ifneq (${SDC},)
-  SDC_CMD := -s ${SDC}
-endif
-ifneq (${PCF},)
-  PCF_CMD := -p ${PCF}
-endif
+include ${current_dir}/includes/common.mk
 
-# Determine if we should use Surelog/UHDM to read sources
-ifneq (${SURELOG_CMD},)
-  SURELOG_OPT := -s ${SURELOG_CMD}
-endif
-
-.DELETE_ON_ERROR:
-
-# Build design
-all: ${BOARD_BUILDDIR}/${TOP}.bit
-
-${BOARD_BUILDDIR}:
-	mkdir -p ${BOARD_BUILDDIR}
-
-${BOARD_BUILDDIR}/${TOP}.eblif: ${SOURCES} ${XDC} ${SDC} ${PCF} | ${BOARD_BUILDDIR}
-	cd ${BOARD_BUILDDIR} && symbiflow_synth -t ${TOP} ${SURELOG_OPT} -v ${SOURCES} -d ${BITSTREAM_DEVICE} -p ${PARTNAME} ${XDC_CMD}
-
-${BOARD_BUILDDIR}/${TOP}.net: ${BOARD_BUILDDIR}/${TOP}.eblif
-	cd ${BOARD_BUILDDIR} && symbiflow_pack -e ${TOP}.eblif -d ${DEVICE} ${SDC_CMD} 2>&1 > /dev/null
-
-${BOARD_BUILDDIR}/${TOP}.place: ${BOARD_BUILDDIR}/${TOP}.net
-	cd ${BOARD_BUILDDIR} && symbiflow_place -e ${TOP}.eblif -d ${DEVICE} ${PCF_CMD} -n ${TOP}.net -P ${PARTNAME} ${SDC_CMD} 2>&1 > /dev/null
-
-${BOARD_BUILDDIR}/${TOP}.route: ${BOARD_BUILDDIR}/${TOP}.place
-	cd ${BOARD_BUILDDIR} && symbiflow_route -e ${TOP}.eblif -d ${DEVICE} ${SDC_CMD} 2>&1 > /dev/null
-
-${BOARD_BUILDDIR}/${TOP}.fasm: ${BOARD_BUILDDIR}/${TOP}.route
-	cd ${BOARD_BUILDDIR} && symbiflow_write_fasm -e ${TOP}.eblif -d ${DEVICE}
-
-${BOARD_BUILDDIR}/${TOP}.bit: ${BOARD_BUILDDIR}/${TOP}.fasm
-	cd ${BOARD_BUILDDIR} && symbiflow_write_bitstream -d ${BITSTREAM_DEVICE} -f ${TOP}.fasm -p ${PARTNAME} -b ${TOP}.bit
-
-download: ${BOARD_BUILDDIR}/${TOP}.bit
-	if [ $(TARGET)='unsupported' ]; then \
-	  echo "The commands needed to download the bitstreams to the board type specified are not currently supported by the F4PGA makefiles. \
-    Please see documentation for more information."; \
-	fi
-	openFPGALoader -b ${OFL_BOARD} ${BOARD_BUILDDIR}/${TOP}.bit
-
-clean:
-	rm -rf ${BUILDDIR}
+clean_sim:
 	rm -rf ./a.out
 
 bench:
-	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 bench_iverilog.v ${file}
+	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 bench_iverilog.v ${SOURCES}
 
 run_bench:
 	vvp a.out
