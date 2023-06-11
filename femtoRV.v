@@ -362,9 +362,9 @@ module Processor (
 
   wire load_sign = !funct3[2] & (mem_byte_access ? load_byte[7] : load_halfword[15]);
 
-  wire load_data = mem_byte_access     ? {{24{load_sign}}  ,   load_byte} :
-                   mem_halfword_access ? {{16{load_data}}, load_halfword} :
-                   mem_rdata
+  wire [31:0] load_data = mem_byte_access     ? {{24{load_sign}}  ,   load_byte} :
+                          mem_halfword_access ? {{16{load_sign}}, load_halfword} :
+                          mem_rdata
   ;
 
   // Store
