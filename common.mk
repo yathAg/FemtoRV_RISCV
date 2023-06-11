@@ -89,7 +89,4 @@ download: ${BOARD_BUILDDIR}/${TOP}.bit
 	openFPGALoader -b ${OFL_BOARD} ${BOARD_BUILDDIR}/${TOP}.bit
 
 clean:
-	rm -rf ${BUILDDIR} \
-  rm -rf ./a.out \
-  rm -rf *.log \
-  rm -rf .f4cache
+	rm -rf ${BUILDDIR}
