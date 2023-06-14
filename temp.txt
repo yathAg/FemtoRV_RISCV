@@ -1,0 +1,23 @@
+riscv64-unknown-elf-as -march=rv32i -mabi=ilp32   mandelbrot.S -o mandelbrot.o 
+riscv64-unknown-elf-as -march=rv32i -mabi=ilp32   start.S -o start.o 
+riscv64-unknown-elf-as -march=rv32i -mabi=ilp32   putchar.S -o putchar.o 
+riscv64-unknown-elf-as -march=rv32i -mabi=ilp32   wait.S -o wait.o 
+riscv64-unknown-elf-gcc -I. -O2 -fno-pic -march=rv32i -mabi=ilp32 -fno-stack-protector -w -Wl,--no-relax  -c print.c
+riscv64-unknown-elf-gcc -I. -O2 -fno-pic -march=rv32i -mabi=ilp32 -fno-stack-protector -w -Wl,--no-relax  -c memcpy.c
+riscv64-unknown-elf-gcc -I. -O2 -fno-pic -march=rv32i -mabi=ilp32 -fno-stack-protector -w -Wl,--no-relax  -c errno.c
+riscv64-unknown-elf-as -march=rv32i -mabi=ilp32   perf.S -o perf.o 
+riscv64-unknown-elf-ld -T bram.ld -m elf32lriscv -nostdlib -norelax mandelbrot.o putchar.o wait.o print.o memcpy.o errno.o perf.o /home/yatharth/vlsi_projects/learn-fpga/FemtoRV/FIRMWARE//TOOLCHAIN/riscv64-unknown-elf-gcc-8.3.0-2020.04.0-x86_64-linux-ubuntu14/lib/gcc/riscv64-unknown-elf/8.3.0/rv32i/ilp32/libgcc.a -o mandelbrot.bram.elf
+/home/yatharth/vlsi_projects/learn-fpga/FemtoRV/FIRMWARE//TOOLS/firmware_words mandelbrot.bram.elf -ram 6144 -max_addr 6144 -out mandelbrot.bram.hex
+   RAM SIZE=6144
+   LOAD ELF: mandelbrot.bram.elf
+       max address=2941
+Code size: 735 words ( total RAM size: 1536 words )
+Occupancy: 47%
+testing MAX_ADDR limit: 6144
+   max_addr OK
+   SAVE HEX: mandelbrot.bram.hex
+cp mandelbrot.bram.hex ../firmware.hex
+mkdir -p ../obj_dir
+cp mandelbrot.bram.hex ../obj_dir/firmware.hex
+echo mandelbrot.bram.hex > ../firmware.txt
+rm perf.o print.o start.o memcpy.o wait.o putchar.o mandelbrot.bram.elf mandelbrot.o errno.o

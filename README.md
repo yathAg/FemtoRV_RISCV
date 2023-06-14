@@ -51,6 +51,15 @@ Based on his project, I have optimized it and implemented it on the ARTIX7 35T F
 
 [https://linux.die.net/man/8/picocom](https://linux.die.net/man/8/picocom)
 
+## Activate env
+
+```bash
+export F4PGA_INSTALL_DIR=~/opt/f4pga
+export FPGA_FAM="xc7"
+source "$F4PGA_INSTALL_DIR/$FPGA_FAM/conda/etc/profile.d/conda.sh"
+conda activate $FPGA_FAM
+```
+
 ## File Description
 
     .
