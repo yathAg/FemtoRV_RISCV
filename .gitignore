@@ -1,4 +1,4 @@
 /obj_dir
-/firmware/mandelbrot.bram.hex
+/firmware/*.bram.hex
 firmware.hex
 firmware.txt
