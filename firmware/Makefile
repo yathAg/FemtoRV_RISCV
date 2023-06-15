@@ -2,8 +2,6 @@ ARCH = rv32i
 ABI = ilp32
 RVASFLAGS= -march=$(ARCH) -mabi=$(ABI) 
 
-
-
 RAM_SIZE=6144
 
 LIBOBJECTS=putchar.o wait.o perf.o # print.o memcpy.o errno.o
@@ -29,12 +27,11 @@ RVRANLIB= riscv64-unknown-elf-ranlib
 
 
 %.hex: %.elf 
-	/home/yatharth/vlsi_projects/learn-fpga/FemtoRV/FIRMWARE//TOOLS/firmware_words $< -ram $(RAM_SIZE) -max_addr $(RAM_SIZE) -out $@
+	./firmware_words $< -ram $(RAM_SIZE) -max_addr $(RAM_SIZE) -out $@
 	cp $@ ../firmware.hex
 	mkdir -p ../obj_dir
 	cp $@ ../obj_dir/firmware.hex
 	echo $@ > ../firmware.txt
 
-
-echo:
-	$(RVAS) $(RVASFLAGS)
+clean:
+	rm mandelbrot.bram.hex
