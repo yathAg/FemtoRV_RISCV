@@ -462,8 +462,8 @@ module Processor (
 
   assign writeback_en = (state == execute && !is_BRANCH && !is_STORE) || (state == wait_data);
   assign mem_addr  = (state == wait_instr  || state == fetch_instr) ? pc :loadstore_addr ;
-  assign mem_rstrb = (state == fetch_instr || state == load_state);
-  assign mem_wmask = {4{(state == store_state)}} & store_mask;
+  assign mem_rstrb = (state == fetch_instr || (state == execute & is_LOAD));
+  assign mem_wmask = {4{(state == execute) & is_STORE}} & store_mask;
 
   // BENCH TEST CODE
   // `ifdef BENCH
