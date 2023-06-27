@@ -72,3 +72,6 @@ conda activate $FPGA_FAM
     ├── sim_main.cpp               # Cpp code for verilator simulation
     ├── terminal.sh                # Shell script to open Serial terminal
     └── README.md
+
+## makefile commands
+
