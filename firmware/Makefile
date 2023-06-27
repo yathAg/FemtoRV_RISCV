@@ -6,7 +6,7 @@ RVCFLAGS= $(RVINCS) -fno-pic -march=$(ARCH) -mabi=$(ABI) \
 RVINCS=-I ./LIBFEMTOGL -I ./LIBFEMTORV32 -I ./LIBFEMTOC
 RAM_SIZE=6144
 
-LIBOBJECTS=putchar.o wait.o perf.o print.o memcpy.o errno.o
+LIBOBJECTS=putchar.o wait.o print.o memcpy.o errno.o perf.o
 
 RVAS= riscv64-unknown-elf-as
 RVLD= riscv64-unknown-elf-ld

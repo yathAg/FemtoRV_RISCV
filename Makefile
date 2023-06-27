@@ -54,3 +54,6 @@ build_verilate: run_verilate
 
 verilate: build_verilate
 	./obj_dir/VSOC
+
+download_flash:
+	openFPGALoader -b arty_a7_35t -o 1048576 -f scene1.img
