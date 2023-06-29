@@ -4,16 +4,15 @@ RISC-V is a free and open ISA enabling a new era of processor innovation through
 
 ## Goals of the Project
 
-- Implement the RISC32I ISA on a single-core processor with pipelining.
-- Apply the knowledge of computer architecture design and Verilog
-- Understand and explore the various toolchains and software required in ASIC and FPGA applications.
+- Implement the RISC32I ISA on a single-core processor and harden the design using Openlane.
+- Apply the knowledge of computer architecture, Verilog and Physical Design.
+- Understand and explore the various open source toolchains and software required in ASIC and FPGA applications.
 - Implement optimizations for reducing required LUTS and increasing the performance of the core.
-- Use the developed core to implement a flight controller and interface with various sensors and actuators required.
 
 The work in the repository wouldn't be possible without @BrunoLevy and his work at [BrunoLevy/learn-fpga](https://github.com/BrunoLevy/learn-fpga)
 The project by him provides an excellent step-wise explanation of developing a RISC-V and serves as the base on which this project is created.
 
-Based on his project, I have optimized it and implemented it on the ARTIX7 35T FPGA using the F4PGA toolchain.
+The project is implemented on the ARTIX7 35T FPGA using the F4PGA toolchain.
 
 ## Setting up the Required Software
 
@@ -56,6 +55,7 @@ Based on his project, I have optimized it and implemented it on the ARTIX7 35T F
 ```bash
 export F4PGA_INSTALL_DIR=~/opt/f4pga
 export FPGA_FAM="xc7"
+export TARGET="arty_35"
 source "$F4PGA_INSTALL_DIR/$FPGA_FAM/conda/etc/profile.d/conda.sh"
 conda activate $FPGA_FAM
 ```
@@ -75,3 +75,40 @@ conda activate $FPGA_FAM
 
 ## makefile commands
 
+- Compile bitsteam
+
+```bash
+make -c .
+```
+
+- Clean build
+
+```bash
+make clean
+```
+
+- Upload bitstream
+
+```bash
+make download
+```
+
+- Start Terminal
+
+```bash
+make terminal
+```
+
+- Write to flash
+
+```bash
+make download_flash
+```
+
+### SPI FLASH
+
+### Compiling C code
+
+### RISCV ABI
+
+### Memory mapped devices
