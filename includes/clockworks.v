@@ -9,13 +9,13 @@ module Clockworks
    input  RESET, // reset pin of the board
    output clk,   // (optionally divided) clock for the design.
                  // divided if SLOW is different from zero.
-   output reset // (optionally timed) negative reset for the design
+   output resetn // (optionally timed) negative reset for the design
 );
 
   generate
     `ifdef BENCH
       assign clk = CLK;
-      assign reset = RESET;
+      assign resetn = RESET;
     `else begin
       femtoPLL #(
         .freq(100)
@@ -23,7 +23,7 @@ module Clockworks
         .pclk(CLK),
         .clk(clk)
       );
-      assign reset = RESET;
+      assign resetn = RESET;
       end
     `endif
     // else
