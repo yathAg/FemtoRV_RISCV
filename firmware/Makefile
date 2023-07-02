@@ -1,5 +1,5 @@
-ARCH = rv32i
-ABI = ilp32
+ARCH = rv32imafc
+ABI = ilp32f
 RVASFLAGS= -march=$(ARCH) -mabi=$(ABI) 
 RVCFLAGS= $(RVINCS) -fno-pic -march=$(ARCH) -mabi=$(ABI) \
          -fno-stack-protector -w -Wl,--no-relax
