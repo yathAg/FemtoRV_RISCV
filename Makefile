@@ -33,7 +33,7 @@ bench:
 	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 -I ./includes/ bench_iverilog.v ${SOURCES}
 	vvp a.out
 
-terminal:
+terminal:download
 	sudo picocom -b $(BAUDS) $(PICO_DEVICE) --imap lfcrlf,crcrlf --omap delbs,crlf --send-cmd "ascii-xfr -s -l 30 -n"
 
 clean_all:
@@ -54,3 +54,6 @@ build_verilate: run_verilate
 
 verilate: build_verilate
 	./obj_dir/VSOC
+
+download_flash:
+	sudo openFPGALoader -b arty_a7_35t -o 3145728 -f scene1.dat

@@ -43,9 +43,9 @@ module Processor (
 );
 
    // Internal width for addresses.
-   localparam ADDR_WIDTH=24;
+   //localparam ADDR_WIDTH=24;
    
-   reg [ADDR_WIDTH:0] PC=0; // program counter
+   reg [31:0] PC=0; // program counter
    reg [31:2] instr;        // current instruction
 
    // See the table P. 105 in RISC-V manual
@@ -180,17 +180,17 @@ module Processor (
    // some RISC-V compliance tests because one can is supposed to use 
    // it to generate arbitrary 32-bit values (and not only addresses).
    
-   wire [ADDR_WIDTH-1:0] PCplusImm = PC + ( instr[3] ? Jimm[31:0] :
+   wire [31:0] PCplusImm = PC + ( instr[3] ? Jimm[31:0] :
 					    instr[4] ? Uimm[31:0] :
 				            Bimm[31:0] );
-   wire [ADDR_WIDTH-1:0] PCplus4 = PC+4;
+   wire [31:0] PCplus4 = PC+4;
    
 
-   wire [ADDR_WIDTH-1:0] nextPC = ((isBranch && takeBranch) || isJAL) ? PCplusImm   :
+   wire [31:0] nextPC = ((isBranch && takeBranch) || isJAL) ? PCplusImm   :
 	                                  isJALR   ? {aluPlus[31:1],1'b0} :
 	                                             PCplus4;
 
-   wire [ADDR_WIDTH-1:0] loadstore_addr = rs1 + (isStore ? Simm : Iimm);
+   wire [31:0] loadstore_addr = rs1 + (isStore ? Simm : Iimm);
 
 
    // register write back
@@ -348,9 +348,9 @@ module SOC (
    
    wire [31:0] RAM_rdata;
    wire [29:0] mem_wordaddr = mem_addr[31:2];
-   wire isSPIFlash  = mem_addr[23];      
-   wire isIO        = mem_addr[23:22] == 2'b01;
-   wire isRAM = !(mem_addr[23] | mem_addr[22]);
+   wire isSPIFlash  = mem_addr[25];      
+   wire isIO        = mem_addr[25:24] == 2'b01;
+   wire isRAM = !(mem_addr[25] | mem_addr[24]);
    wire mem_wstrb = |mem_wmask;
    
    Memory RAM(
@@ -366,7 +366,7 @@ module SOC (
    wire SPIFlash_rbusy;
    MappedSPIFlash SPIFlash(
       .clk(clk),
-      .word_address(mem_wordaddr[19:0]),
+      .word_address(mem_wordaddr[21:0]),
       .rdata(SPIFlash_rdata),
       .rstrb(isSPIFlash & mem_rstrb),
       .rbusy(SPIFlash_rbusy),
