@@ -1,6 +1,7 @@
 `include "includes/clockworks.v"
 `include "includes/emitter_uart.v"
 `include "includes/defines.v"
+`include "includes/spi_flash.v"
 
 module Memory (
   input              clk,
@@ -11,7 +12,7 @@ module Memory (
   input       [3:0]  mem_wmask      // Mask for writing the 4 Bytes
   );
 
-  reg [31:0] MEM [0:1535];
+   reg [31:0] MEM [0:1535]; // 1536 4-bytes words = 6 Kb of RAM in total
 
   initial begin
       $readmemh("firmware.hex",MEM);
@@ -223,7 +224,8 @@ module Processor (
   output     [31:0] mem_addr,
   output            mem_rstrb,
   output     [ 3:0] mem_wmask,
-  output     [31:0] mem_wdata
+  output     [31:0] mem_wdata,
+  input         mem_rbusy
   );
 
   reg [31:0] pc = 0;
@@ -280,7 +282,7 @@ module Processor (
   `ifdef BENCH
      integer i;
      initial begin
-       for(i=0; i<16; ++i) begin
+       for(i=0; i<32; ++i) begin
          register_bank[i] = 0;
        end
      end
@@ -405,12 +407,12 @@ module Processor (
   // State machine
   localparam  fetch_instr = 0;
   localparam  wait_instr  = 1;
-  localparam  fetch_reg   = 2;
-  localparam  execute     = 3;
-  localparam  load_state  = 4;
-  localparam  wait_data   = 5;
-  localparam  store_state = 6;
-  reg [2:0] state = fetch_instr;
+  //localparam  fetch_reg   = 2;
+  localparam  execute     = 2;
+  //localparam  load_state  = 4;
+  localparam  wait_data   = 3;
+  //localparam  store_state = 6;
+  reg [1:0] state = fetch_instr;
 
   always @(posedge clk) begin
     //  Reset
@@ -432,10 +434,6 @@ module Processor (
 
         wait_instr: begin
           instr <= mem_rdata;
-          state <= fetch_reg;
-        end
-
-        fetch_reg: begin
           src1_value <= register_bank[rs1];
           src2_value <= register_bank[rs2];
           state <= execute;
@@ -445,35 +443,27 @@ module Processor (
           if (!is_SYSTEM) begin
             pc <= next_pc;
           end
-          state <= is_LOAD  ? load_state  :
-                   is_STORE ? store_state :
-                              fetch_instr
-          ;
+          state <= is_LOAD  ? wait_data : fetch_instr;
 
           `ifdef BENCH
            if(is_SYSTEM) $finish();
           `endif
         end
 
-        load_state: begin
-          state <= wait_data;
-        end
-
         wait_data: begin
-          state <= fetch_instr;
+          if(!mem_rbusy) begin
+            state <= fetch_instr;
+          end
         end
 
-        store_state: begin
-          state <= fetch_instr;
-        end
       endcase
     end
   end
 
   assign writeback_en = (state == execute && !is_BRANCH && !is_STORE) || (state == wait_data);
   assign mem_addr  = (state == wait_instr  || state == fetch_instr) ? pc :loadstore_addr ;
-  assign mem_rstrb = (state == fetch_instr || state == load_state);
-  assign mem_wmask = {4{(state == store_state)}} & store_mask;
+  assign mem_rstrb = (state == fetch_instr || (state == execute & is_LOAD));
+  assign mem_wmask = {4{(state == execute) & is_STORE}} & store_mask;
 
   // BENCH TEST CODE
   // `ifdef BENCH
@@ -539,43 +529,43 @@ module Processor (
 endmodule //processor
 
 module SOC (
-    input  CLK,        // system clock
-    input  RESET,      // reset button
-    output reg [3:0] LEDS, // system LEDs
-    input  RXD,        // UART receive
-    output TXD         // UART transmit
+    input               CLK,        // system clock
+    input               RESET,      // reset button
+    output reg [3:0]    LEDS, // system LEDs
+    input               RXD,        // UART receive
+    output              TXD,         // UART transmit
+    output 	            SPIFLASH_CLK,  // SPI flash clock
+    output 	            SPIFLASH_CS_N, // SPI flash chip select (active low)
+    output              SPIFLASH_MOSI,
+    input               SPIFLASH_MISO    // SPI flash IO pins
   );
 
   wire clkout;
   wire reset;
 
-  Clockworks CW(
-      .CLK(CLK),
-      .RESET(RESET),
-      .clk(clkout),
-      .reset(reset)
-  );
-
   wire [31:0] mem_addr;
   wire [31:0] mem_rdata;
+  wire        mem_rbusy;
   wire mem_rstrb;
   wire [31:0] mem_wdata;
   wire [3:0]  mem_wmask;
 
   Processor CPU(
     .clk(clkout),
-    .reset(reset),
-    .mem_rdata(mem_rdata),
+    .reset(reset),   
     .mem_addr(mem_addr),
+    .mem_rdata(mem_rdata),
     .mem_rstrb(mem_rstrb),
-    .mem_wmask(mem_wmask),
-    .mem_wdata(mem_wdata)
+    .mem_rbusy(mem_rbusy),
+    .mem_wdata(mem_wdata),
+    .mem_wmask(mem_wmask)
   );
 
   wire [31:0] ram_rdata;
   wire [29:0] mem_wordaddr = mem_addr[31:2];
-  wire is_io = mem_addr[22];
-  wire is_ram = !is_io;
+  wire isSPIFlash  = mem_addr[23];
+  wire is_io = mem_addr[23:22] == 2'b01;
+  wire is_ram = !(mem_addr[23] | mem_addr[22]);
   wire mem_wstrb = |mem_wmask;   //bitwise or entire bus
 
   Memory RAM(
@@ -587,6 +577,20 @@ module SOC (
     .mem_wmask({4{is_ram}} & mem_wmask)
   );
 
+  wire [31:0] SPIFlash_rdata;
+  wire SPIFlash_rbusy;
+
+  MappedSPIFlash SPIFlash(
+    .clk(clk),
+    .word_address(mem_wordaddr[19:0]),
+    .rdata(SPIFlash_rdata),
+    .rstrb(isSPIFlash & mem_rstrb),
+    .rbusy(SPIFlash_rbusy),
+    .CLK(SPIFLASH_CLK),
+    .CS_N(SPIFLASH_CS_N),
+    .MOSI(SPIFLASH_MOSI),
+    .MISO(SPIFLASH_MISO)			   
+  );
   // Memory-mapped IO in IO page, 1-hot addressing in word address.
   localparam  IO_LEDS_bit   = 0;  // write led bits
   localparam  IO_UART_DAT_bit = 1;  // write data to send 8 bits
@@ -618,8 +622,13 @@ module SOC (
                                    : 32'b0
   ;
 
-  assign mem_rdata = is_ram ? ram_rdata : io_rdata ;
+  assign mem_rdata = is_ram     ? ram_rdata : 
+                     isSPIFlash ? SPIFlash_rdata :
+                                  io_rdata
+  ;
 
+  assign mem_rbusy = SPIFlash_rbusy;
+   
   `ifdef BENCH
     always @ (posedge clkout) begin
       if(uart_valid)begin
@@ -628,4 +637,10 @@ module SOC (
       end
     end
   `endif
+    Clockworks CW(
+      .CLK(CLK),
+      .RESET(RESET),
+      .clk(clkout),
+      .reset(reset)
+  );
 endmodule
