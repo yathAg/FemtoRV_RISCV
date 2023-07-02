@@ -33,7 +33,7 @@ endmodule
 
 module Processor (
     input 	  clk,
-    input 	  reset,
+    input 	  resetn,
     output [31:0] mem_addr, 
     input [31:0]  mem_rdata,
     input         mem_rbusy,		  
@@ -262,7 +262,7 @@ module Processor (
    reg [1:0] state = FETCH_INSTR;
    
    always @(posedge clk) begin
-      if(reset) begin
+      if(resetn) begin
 	 PC    <= 0;
 	 state <= FETCH_INSTR;
       end else begin
@@ -315,7 +315,7 @@ endmodule
 
 module SOC (
     input 	     CLK, // system clock 
-    input 	     RESET,// reset button
+    input 	     RESET,// resetn button
     output reg [4:0] LEDS, // system LEDs
     input 	     RXD, // UART receive
     output 	     TXD, // UART transmit
@@ -326,7 +326,7 @@ module SOC (
 );
 
    wire clk;
-   wire reset;
+   wire resetn;
 
    wire [31:0] mem_addr;
    wire [31:0] mem_rdata;
@@ -337,7 +337,7 @@ module SOC (
 
    Processor CPU(
       .clk(clk),
-      .reset(reset),		 
+      .resetn(resetn),		 
       .mem_addr(mem_addr),
       .mem_rdata(mem_rdata),
       .mem_rstrb(mem_rstrb),
@@ -396,7 +396,7 @@ module SOC (
         .baud_rate(1000000)
    ) UART(
       .i_clk(clk),
-      .i_rst(reset),
+      .i_rst(resetn),
       .i_data(mem_wdata[7:0]),
       .i_valid(uart_valid),
       .o_ready(uart_ready),
@@ -422,12 +422,12 @@ module SOC (
    end
 `endif   
    
-   // Gearbox and reset circuitry.
+   // Gearbox and resetn circuitry.
    Clockworks CW(
      .CLK(CLK),
      .RESET(RESET),
      .clk(clk),
-     .reset(reset)
+     .resetn(resetn)
    );
 
 endmodule
