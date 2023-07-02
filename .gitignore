@@ -2,3 +2,10 @@
 /firmware/*.bram.hex
 firmware.hex
 firmware.txt
+.f4cache
+/build
+pack.log
+place.log
+route.log
+synth.log
+
