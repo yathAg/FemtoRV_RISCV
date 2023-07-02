@@ -40,34 +40,34 @@
 
 // Macros to select version and number of dummy cycles based on the board.
 
-// `ifdef ICE_STICK
-//  `define SPI_FLASH_FAST_READ_DUAL_IO
-//  `define SPI_FLASH_CONFIGURED
-// `endif
+`ifdef ICE_STICK
+ `define SPI_FLASH_FAST_READ_DUAL_IO
+ `define SPI_FLASH_CONFIGURED
+`endif
 
-// `ifdef ICE_BREAKER
-//  `define SPI_FLASH_FAST_READ_DUAL_IO
-//  `define SPI_FLASH_DUMMY_CLOCKS 4 // Winbond SPI chips on icebreaker uses 4 dummy clocks
-//  `define SPI_FLASH_CONFIGURED
-// `endif
+`ifdef ICE_BREAKER
+ `define SPI_FLASH_FAST_READ_DUAL_IO
+ `define SPI_FLASH_DUMMY_CLOCKS 4 // Winbond SPI chips on icebreaker uses 4 dummy clocks
+ `define SPI_FLASH_CONFIGURED
+`endif
 
-// `ifdef ULX3S
-//  `define SPI_FLASH_FAST_READ // TODO check whether dual IO mode can be done / dummy clocks
-//  `define SPI_FLASH_CONFIGURED
-// `endif
+`ifdef ULX3S
+ `define SPI_FLASH_FAST_READ // TODO check whether dual IO mode can be done / dummy clocks
+ `define SPI_FLASH_CONFIGURED
+`endif
 
 // `ifdef ARTY
- `define SPI_FLASH_READ
+ `define SPI_FLASH_FAST_READ
  `define SPI_FLASH_CONFIGURED
 // `endif
 
-// `ifndef SPI_FLASH_DUMMY_CLOCKS
-//  `define SPI_FLASH_DUMMY_CLOCKS 8
-// `endif
+`ifndef SPI_FLASH_DUMMY_CLOCKS
+ `define SPI_FLASH_DUMMY_CLOCKS 8
+`endif
 
-// `ifndef SPI_FLASH_CONFIGURED // Default: using slowest / simplest mode (command $03)
-//  `define SPI_FLASH_READ
-// `endif
+`ifndef SPI_FLASH_CONFIGURED // Default: using slowest / simplest mode (command $03)
+ `define SPI_FLASH_READ
+`endif
 
 /********************************************************************************************************************************/
 
