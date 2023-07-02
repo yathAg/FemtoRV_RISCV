@@ -135,7 +135,7 @@ endmodule
 module MappedSPIFlash( 
     input wire 	       clk,          // system clock
     input wire 	       rstrb,        // read strobe		
-    input wire [19:0]  word_address, // address of the word to be read
+    input wire [21:0]  word_address, // address of the word to be read
 
     output wire [31:0] rdata,        // data read
     output wire        rbusy,        // asserted if busy receiving data			    
@@ -166,7 +166,7 @@ module MappedSPIFlash(
    always @(posedge clk) begin
       if(rstrb) begin
 	 CS_N <= 1'b0;
-	 cmd_addr <= {8'h0b, 2'b00,word_address[19:0], 2'b00};
+	 cmd_addr <= {8'h0b,word_address[21:0], 2'b00};
 	 snd_bitcount <= 6'd40; // TODO: check dummy clocks
       end else begin
 	 if(sending) begin
