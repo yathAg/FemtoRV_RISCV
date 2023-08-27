@@ -228,23 +228,21 @@ module Processor (
   input         mem_rbusy
 );
 
-   reg [31:0] pc=0; // program counter
-   reg [31:2] instr;        // current instruction
-
-   // See the table P. 105 in RISC-V manual
+  reg [31:0] pc = 0;
+  reg [31:0] instr;
    
-   // The 10 RISC-V instructions
-   wire is_LOAD    =  (instr[6:2] == 5'b00000); // temp_rd <- mem[src1_value+I_imm]
-   wire is_STORE   =  (instr[6:2] == 5'b01000); // mem[src1_value+S_imm] <- src2_value
-   wire is_BRANCH  =  (instr[6:2] == 5'b11000); // if(src1_value OP src2_value) pc<-pc+B_imm
-   wire is_JALR    =  (instr[6:2] == 5'b11001); // temp_rd <- pc+4; pc<-src1_value+I_imm
-   
-   wire is_JAL     =  (instr[6:2] == 5'b11011); // temp_rd <- pc+4; pc<-pc+J_imm
-   wire is_OPIM  =  (instr[6:2] == 5'b00100); // temp_rd <- src1_value OP I_imm
-   wire is_OP  =  (instr[6:2] == 5'b01100); // temp_rd <- src1_value OP src2_value   
-   wire is_SYSTEM  =  (instr[6:2] == 5'b11100); // special
-   wire is_AUIPC   =  (instr[6:2] == 5'b00101); // temp_rd <- pc + U_imm
-   wire is_LUI     =  (instr[6:2] == 5'b01101); // temp_rd <- U_imm   
+  // RV32 Base opcode defination
+  wire is_LOAD    =  (instr[6:0] == 7'b0000011); // rd <- mem[src1_value+Iimm]
+  wire is_STORE   =  (instr[6:0] == 7'b0100011); // mem[src1_value+Simm] <- src2_value
+  wire is_BRANCH  =  (instr[6:0] == 7'b1100011); // if(src1_value OP src2_value) pc<-pc+Bimm
+  wire is_JALR    =  (instr[6:0] == 7'b1100111); // rd <- pc+4; pc<-src1_value+Iimm
+  wire is_FENCE   =  (instr[6:0] == 7'b0001111);
+  wire is_JAL     =  (instr[6:0] == 7'b1101111); // rd <- pc+4; pc<-pc+Jimm
+  wire is_OPIM    =  (instr[6:0] == 7'b0010011); // rd <- src1_value OP Iimm
+  wire is_OP      =  (instr[6:0] == 7'b0110011); // rd <- src1_value OP src2_value
+  wire is_SYSTEM  =  (instr[6:0] == 7'b1110011); // special
+  wire is_AUIPC   =  (instr[6:0] == 7'b0010111); // rd <- pc + Uimm
+  wire is_LUI     =  (instr[6:0] == 7'b0110111); // rd <- Uimm
 
    // The 5 immediate formats
   wire [31:0] I_imm = {{21{instr[31]}}, instr[30:20]  };
@@ -343,10 +341,11 @@ module Processor (
    
   wire [31:0] pc_plus_4   = pc + 32'd4;
    
-
-   wire [31:0] next_pc = ((is_BRANCH && take_branch) || is_JAL) ? pc_plus_imm   :
-	                                  is_JALR   ? {alu_plus[31:1],1'b0} :
-	                                             pc_plus_4 ;
+  wire[31:0] next_pc = (is_BRANCH && take_branch) ? pc_plus_imm :
+                       is_JAL                     ? pc_plus_imm :
+                       is_JALR                    ? {alu_plus[31:1],1'b0} :
+                       pc_plus_4
+  ;
                                                
   // Register write back
   wire [31:0] writeback_data;
@@ -431,7 +430,7 @@ module Processor (
 	   end
 
 	   wait_instr: begin
-	      instr <= mem_rdata[31:2];
+	      instr[31:2] <= mem_rdata[31:2];
 	      src1_value <= register_bank[mem_rdata[19:15]];
 	      src2_value <= register_bank[mem_rdata[24:20]];
 	      state <= execute;
