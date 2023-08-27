@@ -78,7 +78,7 @@ conda activate $FPGA_FAM
 - Compile bitsteam
 
 ```bash
-make -c .
+make -C .
 ```
 
 - Clean build

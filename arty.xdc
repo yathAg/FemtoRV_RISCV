@@ -40,7 +40,7 @@ set_property -dict { PACKAGE_PIN D9    IOSTANDARD LVCMOS33 } [get_ports { RESET 
 #set_property -dict { PACKAGE_PIN B8    IOSTANDARD LVCMOS33 } [get_ports { btn[3] }]; #IO_L12P_T1_MRCC_16 Sch=btn[3]
 
 ## Pmod Header JA
-set_property -dict { PACKAGE_PIN G13   IOSTANDARD LVCMOS33 } [get_ports { LEDS[4] }]; #IO_0_15 Sch=ja[1]
+# set_property -dict { PACKAGE_PIN G13   IOSTANDARD LVCMOS33 } [get_ports { LEDS[4] }]; #IO_0_15 Sch=ja[1]
 #set_property -dict { PACKAGE_PIN B11   IOSTANDARD LVCMOS33 } [get_ports { ja[1] }]; #IO_L4P_T0_15 Sch=ja[2]
 #set_property -dict { PACKAGE_PIN A11   IOSTANDARD LVCMOS33 } [get_ports { ja[2] }]; #IO_L4N_T0_15 Sch=ja[3]
 #set_property -dict { PACKAGE_PIN D12   IOSTANDARD LVCMOS33 } [get_ports { ja[3] }]; #IO_L6P_T0_15 Sch=ja[4]
