@@ -431,8 +431,8 @@ module Processor (
 
         wait_instr: begin
           instr <= mem_rdata[31:2];
-          src1_value <= register_bank[rs1];
-          src2_value <= register_bank[rs2];
+	      src1_value <= register_bank[mem_rdata[19:15]];
+	      src2_value <= register_bank[mem_rdata[24:20]];
           state <= execute;
         end
 

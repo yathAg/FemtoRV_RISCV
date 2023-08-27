@@ -2,7 +2,7 @@
 `include "includes/emitter_uart.v"
 `include "includes/defines.v"
 `include "includes/spi_flash.v"
-//works
+//checkpoint
 module Memory (
   input              clk,
   input       [31:0] mem_addr,      // Address to be read
@@ -234,16 +234,17 @@ module Processor (
    // See the table P. 105 in RISC-V manual
    
    // The 10 RISC-V instructions
-   wire is_OP  =  (instr[6:2] == 5'b01100); // temp_rd <- src1_value OP src2_value   
-   wire is_OPIM  =  (instr[6:2] == 5'b00100); // temp_rd <- src1_value OP I_imm
-   wire is_BRANCH  =  (instr[6:2] == 5'b11000); // if(src1_value OP src2_value) pc<-pc+B_imm
-   wire is_JALR    =  (instr[6:2] == 5'b11001); // temp_rd <- pc+4; pc<-src1_value+I_imm
-   wire is_JAL     =  (instr[6:2] == 5'b11011); // temp_rd <- pc+4; pc<-pc+J_imm
-   wire is_AUIPC   =  (instr[6:2] == 5'b00101); // temp_rd <- pc + U_imm
-   wire is_LUI     =  (instr[6:2] == 5'b01101); // temp_rd <- U_imm   
    wire is_LOAD    =  (instr[6:2] == 5'b00000); // temp_rd <- mem[src1_value+I_imm]
    wire is_STORE   =  (instr[6:2] == 5'b01000); // mem[src1_value+S_imm] <- src2_value
+   wire is_BRANCH  =  (instr[6:2] == 5'b11000); // if(src1_value OP src2_value) pc<-pc+B_imm
+   wire is_JALR    =  (instr[6:2] == 5'b11001); // temp_rd <- pc+4; pc<-src1_value+I_imm
+   
+   wire is_JAL     =  (instr[6:2] == 5'b11011); // temp_rd <- pc+4; pc<-pc+J_imm
+   wire is_OPIM  =  (instr[6:2] == 5'b00100); // temp_rd <- src1_value OP I_imm
+   wire is_OP  =  (instr[6:2] == 5'b01100); // temp_rd <- src1_value OP src2_value   
    wire is_SYSTEM  =  (instr[6:2] == 5'b11100); // special
+   wire is_AUIPC   =  (instr[6:2] == 5'b00101); // temp_rd <- pc + U_imm
+   wire is_LUI     =  (instr[6:2] == 5'b01101); // temp_rd <- U_imm   
 
    // The 5 immediate formats
   wire [31:0] I_imm = {{21{instr[31]}}, instr[30:20]  };
@@ -296,51 +297,29 @@ module Processor (
   // ALU
   // ALU Registers
   reg  [31:0] alu_out;
-   wire [31:0] alu_in1 = src1_value;
-   wire [31:0] alu_in2 = is_OP | is_BRANCH ? src2_value : I_imm;
-   wire [4:0] shamt = is_OP ? src2_value[4:0] : instr[24:20]; // shift amount
+  wire [31:0] alu_in1 = src1_value;
+  wire [31:0] alu_in2 = is_OP | is_BRANCH ? src2_value : imm;  //imm
+  wire [ 4:0] shamt   = is_OP ? src2_value[4:0] : instr[24:20];
 
-   // The adder is used by both arithmetic instructions and JALR.
-   wire [31:0] aluPlus = alu_in1 + alu_in2;
+  // Adder
+   wire [31:0] alu_plus = alu_in1 + alu_in2;
+  // 33 Bit subtractor
+   wire [32:0] alu_minus = {1'b1, ~alu_in2} + {1'b0,alu_in1} + 33'b1;
+  //comparator using subtractor
+  wire lt  = (alu_in1[31] ^ alu_in2[31]) ? alu_in1[31] : alu_minus[32];
+  wire ltu = alu_minus[32];
+  wire eq  = (alu_minus[31:0] == 0);
 
-   // Use a single 33 bits subtract to do subtraction and all comparisons
-   // (trick borrowed from swapforth/J1)
-   wire [32:0] aluMinus = {1'b1, ~alu_in2} + {1'b0,alu_in1} + 33'b1;
-   wire        lt  = (alu_in1[31] ^ alu_in2[31]) ? alu_in1[31] : aluMinus[32];
-   wire        ltu = aluMinus[32];
-   wire        eq  = (aluMinus[31:0] == 0);
-
-   // Flip a 32 bit word. Used by the shifter (a single shifter for
-   // left and right shifts, saves silicium !)
-   function [31:0] flip32;
-      input [31:0] x;
-      flip32 = {x[ 0], x[ 1], x[ 2], x[ 3], x[ 4], x[ 5], x[ 6], x[ 7], 
-		x[ 8], x[ 9], x[10], x[11], x[12], x[13], x[14], x[15], 
-		x[16], x[17], x[18], x[19], x[20], x[21], x[22], x[23],
-		x[24], x[25], x[26], x[27], x[28], x[29], x[30], x[31]};
-   endfunction
-
-   wire [31:0] shifter_in = (funct3 == 3'b001) ? flip32(alu_in1) : alu_in1;
-   
-   /* verilator lint_off WIDTH */
-   wire [31:0] shifter = 
-               $signed({instr[30] & alu_in1[31], shifter_in}) >>> alu_in2[4:0];
-   /* verilator lint_on WIDTH */
-
-   wire [31:0] leftshift = flip32(shifter);
-   
-
-   
   always @ ( * ) begin
       case(funct3)
-	3'b000: alu_out = (funct7[5] & instr[5]) ? aluMinus[31:0] : aluPlus;
-	3'b001: alu_out = leftshift;
-	3'b010: alu_out = {31'b0, lt};
-	3'b011: alu_out = {31'b0, ltu};
-	3'b100: alu_out = (alu_in1 ^ alu_in2);
-	3'b101: alu_out = shifter;
-	3'b110: alu_out = (alu_in1 | alu_in2);
-	3'b111: alu_out = (alu_in1 & alu_in2);	
+      `f3_add  : alu_out = (funct7[5] & instr[5]) ? alu_minus[31:0] : alu_plus;
+      `f3_sll  : alu_out = alu_in1 << shamt;
+      `f3_slt  : alu_out = {31'b0, lt};
+      `f3_sltu : alu_out = {31'b0, ltu};
+      `f3_xor  : alu_out = (alu_in1 ^ alu_in2);
+      `f3_sr   : alu_out = funct7[5]? ($signed(alu_in1) >>> shamt) : ($signed(alu_in1) >> shamt);
+      `f3_or   : alu_out = (alu_in1 | alu_in2);
+      `f3_and  : alu_out = (alu_in1 & alu_in2);
       endcase
    end
 
@@ -359,45 +338,29 @@ module Processor (
       endcase
    end
    
-
-   // Address computation
-
-
-   /* verilator lint_off WIDTH */
-
-   // An adder used to compute branch address, JAL address and AUIPC.
-   // branch->pc+B_imm    AUIPC->pc+U_imm    JAL->pc+J_imm
-   // Equivalent to PCplusImm = pc + (is_JAL ? J_imm : is_AUIPC ? U_imm : B_imm)
-
-   // Note: doing so with ADDR_WIDTH < 32, AUIPC may fail in 
-   // some RISC-V compliance tests because one can is supposed to use 
-   // it to generate arbitrary 32-bit values (and not only addresses).
+  // Next pc
+  wire [31:0] pc_plus_imm = pc + imm;
    
-   wire [31:0] PCplusImm = pc + ( instr[3] ? J_imm[31:0] :
-					    instr[4] ? U_imm[31:0] :
-				            B_imm[31:0] );
-   wire [31:0] PCplus4 = pc+4;
+  wire [31:0] pc_plus_4   = pc + 32'd4;
    
 
-   wire [31:0] next_pc = ((is_BRANCH && take_branch) || is_JAL) ? PCplusImm   :
-	                                  is_JALR   ? {aluPlus[31:1],1'b0} :
-	                                             PCplus4;
+   wire [31:0] next_pc = ((is_BRANCH && take_branch) || is_JAL) ? pc_plus_imm   :
+	                                  is_JALR   ? {alu_plus[31:1],1'b0} :
+	                                             pc_plus_4 ;
                                                
   // Register write back
   wire [31:0] writeback_data;
   wire        writeback_en;
 
-   wire [31:0] loadstore_addr = src1_value + (is_STORE ? S_imm : I_imm);
+  assign writeback_data = (is_JAL ||is_JALR) ? (pc_plus_4)   :
+                          is_LUI             ? imm           :
+                          is_AUIPC           ? pc_plus_imm   :
+                          is_LOAD            ? load_data     :
+                          alu_out
+  ;
 
+  wire [31:0] loadstore_addr = src1_value + imm;
 
-   // register write back
-   assign writeback_data = (is_JAL || is_JALR) ? PCplus4   :
-			      is_LUI         ? U_imm      :
-			      is_AUIPC       ? PCplusImm :
-			      is_LOAD        ? load_data :
-			                      alu_out;
-   /* verilator lint_on WIDTH */
-   
   wire mem_byte_access      = funct3[1:0] == 2'b00;
   wire mem_halfword_access  = funct3[1:0] == 2'b01;
 
