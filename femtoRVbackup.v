@@ -330,7 +330,7 @@ module Processor (
       `f3_bne   : take_branch = !eq;
       `f3_blt   : take_branch = lt;
       `f3_bge   : take_branch = !lt;
-      `f3_bltu  : take_branch = lt;
+      `f3_bltu  : take_branch = ltu;
       `f3_bgeu  : take_branch = !ltu;
       default   : take_branch = 1'b0;
     endcase

@@ -2,7 +2,7 @@
 `include "includes/emitter_uart.v"
 `include "includes/defines.v"
 `include "includes/spi_flash.v"
-
+//works
 module Memory (
   input              clk,
   input       [31:0] mem_addr,      // Address to be read
@@ -218,83 +218,97 @@ module Memory (
 endmodule // memory
 
 module Processor (
-    input 	  clk,
-    input 	  resetn,
-    output [31:0] mem_addr, 
-    input [31:0]  mem_rdata,
-    input         mem_rbusy,		  
-    output 	  mem_rstrb,
-    output [31:0] mem_wdata,
-    output [3:0]  mem_wmask
+  input             clk,
+  input             resetn,
+  input      [31:0] mem_rdata,
+  output     [31:0] mem_addr,
+  output            mem_rstrb,
+  output     [ 3:0] mem_wmask,
+  output     [31:0] mem_wdata,
+  input         mem_rbusy
 );
 
-   // Internal width for addresses.
-   //localparam ADDR_WIDTH=24;
-   
-   reg [31:0] PC=0; // program counter
+   reg [31:0] pc=0; // program counter
    reg [31:2] instr;        // current instruction
 
    // See the table P. 105 in RISC-V manual
    
    // The 10 RISC-V instructions
-   wire isALUreg  =  (instr[6:2] == 5'b01100); // rd <- rs1 OP rs2   
-   wire isALUimm  =  (instr[6:2] == 5'b00100); // rd <- rs1 OP Iimm
-   wire isBranch  =  (instr[6:2] == 5'b11000); // if(rs1 OP rs2) PC<-PC+Bimm
-   wire isJALR    =  (instr[6:2] == 5'b11001); // rd <- PC+4; PC<-rs1+Iimm
-   wire isJAL     =  (instr[6:2] == 5'b11011); // rd <- PC+4; PC<-PC+Jimm
-   wire isAUIPC   =  (instr[6:2] == 5'b00101); // rd <- PC + Uimm
-   wire isLUI     =  (instr[6:2] == 5'b01101); // rd <- Uimm   
-   wire isLoad    =  (instr[6:2] == 5'b00000); // rd <- mem[rs1+Iimm]
-   wire isStore   =  (instr[6:2] == 5'b01000); // mem[rs1+Simm] <- rs2
-   wire isSYSTEM  =  (instr[6:2] == 5'b11100); // special
+   wire is_OP  =  (instr[6:2] == 5'b01100); // temp_rd <- src1_value OP src2_value   
+   wire is_OPIM  =  (instr[6:2] == 5'b00100); // temp_rd <- src1_value OP I_imm
+   wire is_BRANCH  =  (instr[6:2] == 5'b11000); // if(src1_value OP src2_value) pc<-pc+B_imm
+   wire is_JALR    =  (instr[6:2] == 5'b11001); // temp_rd <- pc+4; pc<-src1_value+I_imm
+   wire is_JAL     =  (instr[6:2] == 5'b11011); // temp_rd <- pc+4; pc<-pc+J_imm
+   wire is_AUIPC   =  (instr[6:2] == 5'b00101); // temp_rd <- pc + U_imm
+   wire is_LUI     =  (instr[6:2] == 5'b01101); // temp_rd <- U_imm   
+   wire is_LOAD    =  (instr[6:2] == 5'b00000); // temp_rd <- mem[src1_value+I_imm]
+   wire is_STORE   =  (instr[6:2] == 5'b01000); // mem[src1_value+S_imm] <- src2_value
+   wire is_SYSTEM  =  (instr[6:2] == 5'b11100); // special
 
    // The 5 immediate formats
-   wire [31:0] Uimm={    instr[31],   instr[30:12], {12{1'b0}}};
-   wire [31:0] Iimm={{21{instr[31]}}, instr[30:20]};
-   /* verilator lint_off UNUSED */ // MSBs of SBJimms are not used by addr adder.
-   wire [31:0] Simm={{21{instr[31]}}, instr[30:25],instr[11:7]};
-   wire [31:0] Bimm={{20{instr[31]}}, instr[7],instr[30:25],instr[11:8],1'b0};
-   wire [31:0] Jimm={{12{instr[31]}}, instr[19:12],instr[20],instr[30:21],1'b0};
-   /* verilator lint_on UNUSED */
-
-   // Destination registers
-   wire [4:0] rdId  = instr[11:7];
+  wire [31:0] I_imm = {{21{instr[31]}}, instr[30:20]  };
+  wire [31:0] S_imm = {{21{instr[31]}}, instr[30:25], instr[11:7] };
+  wire [31:0] B_imm = {{20{instr[31]}}, instr[7],     instr[30:25] , instr[11:8],1'b0};
+  wire [31:0] U_imm = {    instr[31],   instr[30:12], {12{1'b0}}  };
+  wire [31:0] J_imm = {{12{instr[31]}}, instr[19:12], instr[20]    , instr[30:21],1'b0};
    
-   // function codes
-   wire [2:0] funct3 = instr[14:12];
+  // immdiate validity
+  wire is_i_instr = is_LOAD || is_OPIM || is_JALR;
+  wire is_u_instr = is_LUI || is_AUIPC ;
+  wire is_s_instr = is_STORE ;
+  wire is_b_instr = is_BRANCH ;
+  wire is_j_instr = is_JAL;
+
+  wire [31:0] imm  = is_i_instr ? {{21{instr[31]}}, instr[30:20]  }:
+                     is_s_instr ? {{21{instr[31]}}, instr[30:25], instr[11:7] }:
+                     is_b_instr ? {{20{instr[31]}}, instr[7],     instr[30:25] , instr[11:8],1'b0}:
+                     is_u_instr ? {    instr[31],   instr[30:12], {12{1'b0}}  }:
+                     is_j_instr ? {{12{instr[31]}}, instr[19:12], instr[20]    , instr[30:21],1'b0}:
+                     32'b0;
+
+     // instruction fields
+  wire [4:0] rs1 = instr[19:15];
+  wire [4:0] rs2 = instr[24:20];
+  wire [4:0] rd  = instr[11:7];
+  wire [2:0] funct3 = instr[14:12];
    wire [6:0] funct7 = instr[31:25];
+  wire [6:0] opcode = instr[6:0];
+
+  wire [10:0] dec_bits = {instr[30],funct3,opcode};
    
    // The registers bank
-   reg [31:0] RegisterBank [0:31];
-   reg [31:0] rs1; // value of source
-   reg [31:0] rs2; //  registers.
-   wire [31:0] writeBackData; // data to be written to rd
-   wire        writeBackEn;   // asserted if data should be written to rd
+   reg [31:0] register_bank [0:31];
 
+  // Initialize registers to 0
 `ifdef BENCH   
-   integer     i;
+     integer i;
    initial begin
       for(i=0; i<32; ++i) begin
-	 RegisterBank[i] = 0;
+	 register_bank[i] = 0;
       end
    end
 `endif   
 
-   // The ALU
-   wire [31:0] aluIn1 = rs1;
-   wire [31:0] aluIn2 = isALUreg | isBranch ? rs2 : Iimm;
+  // registers
+  reg [31:0] src1_value;
+  reg [31:0] src2_value;
 
-   wire [4:0] shamt = isALUreg ? rs2[4:0] : instr[24:20]; // shift amount
+  // ALU
+  // ALU Registers
+  reg  [31:0] alu_out;
+   wire [31:0] alu_in1 = src1_value;
+   wire [31:0] alu_in2 = is_OP | is_BRANCH ? src2_value : I_imm;
+   wire [4:0] shamt = is_OP ? src2_value[4:0] : instr[24:20]; // shift amount
 
    // The adder is used by both arithmetic instructions and JALR.
-   wire [31:0] aluPlus = aluIn1 + aluIn2;
+   wire [31:0] aluPlus = alu_in1 + alu_in2;
 
    // Use a single 33 bits subtract to do subtraction and all comparisons
    // (trick borrowed from swapforth/J1)
-   wire [32:0] aluMinus = {1'b1, ~aluIn2} + {1'b0,aluIn1} + 33'b1;
-   wire        LT  = (aluIn1[31] ^ aluIn2[31]) ? aluIn1[31] : aluMinus[32];
-   wire        LTU = aluMinus[32];
-   wire        EQ  = (aluMinus[31:0] == 0);
+   wire [32:0] aluMinus = {1'b1, ~alu_in2} + {1'b0,alu_in1} + 33'b1;
+   wire        lt  = (alu_in1[31] ^ alu_in2[31]) ? alu_in1[31] : aluMinus[32];
+   wire        ltu = aluMinus[32];
+   wire        eq  = (aluMinus[31:0] == 0);
 
    // Flip a 32 bit word. Used by the shifter (a single shifter for
    // left and right shifts, saves silicium !)
@@ -306,49 +320,42 @@ module Processor (
 		x[24], x[25], x[26], x[27], x[28], x[29], x[30], x[31]};
    endfunction
 
-   wire [31:0] shifter_in = (funct3 == 3'b001) ? flip32(aluIn1) : aluIn1;
+   wire [31:0] shifter_in = (funct3 == 3'b001) ? flip32(alu_in1) : alu_in1;
    
    /* verilator lint_off WIDTH */
    wire [31:0] shifter = 
-               $signed({instr[30] & aluIn1[31], shifter_in}) >>> aluIn2[4:0];
+               $signed({instr[30] & alu_in1[31], shifter_in}) >>> alu_in2[4:0];
    /* verilator lint_on WIDTH */
 
    wire [31:0] leftshift = flip32(shifter);
    
 
    
-   // ADD/SUB/ADDI: 
-   // funct7[5] is 1 for SUB and 0 for ADD. We need also to test instr[5]
-   // to make the difference with ADDI
-   //
-   // SRLI/SRAI/SRL/SRA: 
-   // funct7[5] is 1 for arithmetic shift (SRA/SRAI) and 
-   // 0 for logical shift (SRL/SRLI)
-   reg [31:0]  aluOut;
-   always @(*) begin
+  always @ ( * ) begin
       case(funct3)
-	3'b000: aluOut = (funct7[5] & instr[5]) ? aluMinus[31:0] : aluPlus;
-	3'b001: aluOut = leftshift;
-	3'b010: aluOut = {31'b0, LT};
-	3'b011: aluOut = {31'b0, LTU};
-	3'b100: aluOut = (aluIn1 ^ aluIn2);
-	3'b101: aluOut = shifter;
-	3'b110: aluOut = (aluIn1 | aluIn2);
-	3'b111: aluOut = (aluIn1 & aluIn2);	
+	3'b000: alu_out = (funct7[5] & instr[5]) ? aluMinus[31:0] : aluPlus;
+	3'b001: alu_out = leftshift;
+	3'b010: alu_out = {31'b0, lt};
+	3'b011: alu_out = {31'b0, ltu};
+	3'b100: alu_out = (alu_in1 ^ alu_in2);
+	3'b101: alu_out = shifter;
+	3'b110: alu_out = (alu_in1 | alu_in2);
+	3'b111: alu_out = (alu_in1 & alu_in2);	
       endcase
    end
 
-   // The predicate for branch instructions
-   reg takeBranch;
-   always @(*) begin
+  // Brach machine
+   reg take_branch;
+
+  always @ ( * ) begin
       case(funct3)
-	3'b000: takeBranch = EQ;
-	3'b001: takeBranch = !EQ;
-	3'b100: takeBranch = LT;
-	3'b101: takeBranch = !LT;
-	3'b110: takeBranch = LTU;
-	3'b111: takeBranch = !LTU;
-	default: takeBranch = 1'b0;
+      `f3_beq   : take_branch = eq;
+      `f3_bne   : take_branch = !eq;
+      `f3_blt   : take_branch = lt;
+      `f3_bge   : take_branch = !lt;
+      `f3_bltu  : take_branch = ltu;
+      `f3_bgeu  : take_branch = !ltu;
+      default   : take_branch = 1'b0;
       endcase
    end
    
@@ -359,128 +366,202 @@ module Processor (
    /* verilator lint_off WIDTH */
 
    // An adder used to compute branch address, JAL address and AUIPC.
-   // branch->PC+Bimm    AUIPC->PC+Uimm    JAL->PC+Jimm
-   // Equivalent to PCplusImm = PC + (isJAL ? Jimm : isAUIPC ? Uimm : Bimm)
+   // branch->pc+B_imm    AUIPC->pc+U_imm    JAL->pc+J_imm
+   // Equivalent to PCplusImm = pc + (is_JAL ? J_imm : is_AUIPC ? U_imm : B_imm)
 
    // Note: doing so with ADDR_WIDTH < 32, AUIPC may fail in 
    // some RISC-V compliance tests because one can is supposed to use 
    // it to generate arbitrary 32-bit values (and not only addresses).
    
-   wire [31:0] PCplusImm = PC + ( instr[3] ? Jimm[31:0] :
-					    instr[4] ? Uimm[31:0] :
-				            Bimm[31:0] );
-   wire [31:0] PCplus4 = PC+4;
+   wire [31:0] PCplusImm = pc + ( instr[3] ? J_imm[31:0] :
+					    instr[4] ? U_imm[31:0] :
+				            B_imm[31:0] );
+   wire [31:0] PCplus4 = pc+4;
    
 
-   wire [31:0] nextPC = ((isBranch && takeBranch) || isJAL) ? PCplusImm   :
-	                                  isJALR   ? {aluPlus[31:1],1'b0} :
+   wire [31:0] next_pc = ((is_BRANCH && take_branch) || is_JAL) ? PCplusImm   :
+	                                  is_JALR   ? {aluPlus[31:1],1'b0} :
 	                                             PCplus4;
+                                               
+  // Register write back
+  wire [31:0] writeback_data;
+  wire        writeback_en;
 
-   wire [31:0] loadstore_addr = rs1 + (isStore ? Simm : Iimm);
+   wire [31:0] loadstore_addr = src1_value + (is_STORE ? S_imm : I_imm);
 
 
    // register write back
-   assign writeBackData = (isJAL || isJALR) ? PCplus4   :
-			      isLUI         ? Uimm      :
-			      isAUIPC       ? PCplusImm :
-			      isLoad        ? LOAD_data :
-			                      aluOut;
+   assign writeback_data = (is_JAL || is_JALR) ? PCplus4   :
+			      is_LUI         ? U_imm      :
+			      is_AUIPC       ? PCplusImm :
+			      is_LOAD        ? load_data :
+			                      alu_out;
    /* verilator lint_on WIDTH */
    
-   wire mem_byteAccess     = funct3[1:0] == 2'b00;
-   wire mem_halfwordAccess = funct3[1:0] == 2'b01;
+  wire mem_byte_access      = funct3[1:0] == 2'b00;
+  wire mem_halfword_access  = funct3[1:0] == 2'b01;
 
+   wire [15:0] load_halfword = loadstore_addr[1] ? mem_rdata[31:16] : mem_rdata[15:0];
+  wire [7:0]  load_byte     = loadstore_addr[0] ? load_halfword[15:8] : load_halfword[7:0];
 
-   wire [15:0] LOAD_halfword =
-	       loadstore_addr[1] ? mem_rdata[31:16] : mem_rdata[15:0];
+   wire load_sign = !funct3[2] & (mem_byte_access ? load_byte[7] : load_halfword[15]);
 
-   wire  [7:0] LOAD_byte =
-	       loadstore_addr[0] ? LOAD_halfword[15:8] : LOAD_halfword[7:0];
-
-   wire LOAD_sign =
-	!funct3[2] & (mem_byteAccess ? LOAD_byte[7] : LOAD_halfword[15]);
-
-   wire [31:0] LOAD_data =
-         mem_byteAccess ? {{24{LOAD_sign}},     LOAD_byte} :
-     mem_halfwordAccess ? {{16{LOAD_sign}}, LOAD_halfword} :
-                          mem_rdata ;
-   // Store
-   // ------------------------------------------------------------------------
-
-   assign mem_wdata[ 7: 0] = rs2[7:0];
-   assign mem_wdata[15: 8] = loadstore_addr[0] ? rs2[7:0]  : rs2[15: 8];
-   assign mem_wdata[23:16] = loadstore_addr[1] ? rs2[7:0]  : rs2[23:16];
-   assign mem_wdata[31:24] = loadstore_addr[0] ? rs2[7:0]  :
-			     loadstore_addr[1] ? rs2[15:8] : rs2[31:24];
-
-   wire [3:0] STORE_wmask =
-	      mem_byteAccess      ?
-	            (loadstore_addr[1] ?
-		          (loadstore_addr[0] ? 4'b1000 : 4'b0100) :
-		          (loadstore_addr[0] ? 4'b0010 : 4'b0001)
-                    ) :
-	      mem_halfwordAccess ?
-	            (loadstore_addr[1] ? 4'b1100 : 4'b0011) :
-              4'b1111;
+  wire [31:0] load_data = mem_byte_access     ? {{24{load_sign}}  ,   load_byte} :
+     mem_halfword_access ? {{16{load_sign}}, load_halfword} :
+                          mem_rdata 
+                          ;
    
-   // The state machine
-   localparam FETCH_INSTR = 0;
-   localparam WAIT_INSTR  = 1;
-   localparam EXECUTE     = 2;
-   localparam WAIT_DATA   = 3;
-   reg [1:0] state = FETCH_INSTR;
+   // Store
+  // 31 : 24 | 23 : 16 | 15 : 8 | 7 : 0
+
+    //                              [7:0]   byte 00
+  //                      [7:0]           byte 01
+  //            [7:0]                     byte 10
+  //  [7:0]                               byte 11
+
+  //                     [15:8]  [7:0]    hw   00
+  //  [15:8]    [7:0]                     hw   10
+
+  //  [31:26]  [23:16]  [15:8]  [7:0]     w    00
+  
+  assign mem_wdata[ 7:0 ] = src2_value[7:0];
+  assign mem_wdata[15:8 ] = loadstore_addr[0] ? src2_value[ 7:0] : src2_value[15:8 ];
+  assign mem_wdata[23:16] = loadstore_addr[1] ? src2_value[ 7:0] : src2_value[23:16];
+  assign mem_wdata[31:24] = loadstore_addr[0] ? src2_value[ 7:0] :
+                            loadstore_addr[1] ? src2_value[15:8] : src2_value[31:24]
+  ;
+
+   wire [3:0] store_mask =
+    (mem_byte_access) ?
+	            (loadstore_addr[1]   ?
+        (loadstore_addr[0] ? 4'b1000 : 4'b0100) :   // 11  10
+        (loadstore_addr[0] ? 4'b0010 : 4'b0001)     // 01  00
+        ):
+	      mem_halfword_access  ?
+        (loadstore_addr[1] ? 4'b1100 : 4'b0011) :   // 10 00
+              4'b1111
+              ;
+   
+  // State machine
+   localparam  fetch_instr = 0;
+   localparam  wait_instr  = 1;
+   localparam  execute     = 2;
+   localparam  wait_data   = 3;
+   reg [1:0] state = fetch_instr;
    
    always @(posedge clk) begin
+    //  Reset
       if(resetn) begin
-	 PC    <= 0;
-	 state <= FETCH_INSTR;
-      end else begin
-	 if(writeBackEn && rdId != 0) begin
-	    RegisterBank[rdId] <= writeBackData;
+      pc <= 0;
+	 state <= fetch_instr;
+      end 
+
+      else begin
+	 if(writeback_en && rd != 0) 
+   begin
+	    register_bank[rd] <= writeback_data;
 	 end
+
 	 case(state)
-	   FETCH_INSTR: begin
-	      state <= WAIT_INSTR;
+	   fetch_instr: begin
+	      state <= wait_instr;
 	   end
-	   WAIT_INSTR: begin
+
+	   wait_instr: begin
 	      instr <= mem_rdata[31:2];
-	      rs1 <= RegisterBank[mem_rdata[19:15]];
-	      rs2 <= RegisterBank[mem_rdata[24:20]];
-	      state <= EXECUTE;
+	      src1_value <= register_bank[mem_rdata[19:15]];
+	      src2_value <= register_bank[mem_rdata[24:20]];
+	      state <= execute;
 	   end
-	   EXECUTE: begin
-	      if(!isSYSTEM) begin
-		 /* verilator lint_off WIDTH */
-		 PC <= nextPC;
-		 /* verilator lint_on WIDTH */		 
+
+	   execute: begin
+          if (!is_SYSTEM) begin
+		 pc <= next_pc;
 	      end
-	      state <= isLoad  ? WAIT_DATA : FETCH_INSTR;
+	      state <= is_LOAD  ? wait_data : fetch_instr;
+
 `ifdef BENCH      
-	      if(isSYSTEM) $finish();
+	      if(is_SYSTEM) $finish();
 `endif      
 	   end
-	   WAIT_DATA: begin
+
+	    wait_data: begin
 	      if(!mem_rbusy) begin
-		 state <= FETCH_INSTR;
+		 state <= fetch_instr;
 	      end
 	   end
+
 	 endcase 
       end
    end
 
-   assign writeBackEn = (state==EXECUTE && !isBranch && !isStore) ||
-			(state==WAIT_DATA) ;
+   assign writeback_en = (state == execute && !is_BRANCH && !is_STORE) || (state == wait_data);
+   assign mem_addr  = (state == wait_instr  || state == fetch_instr) ? pc :loadstore_addr ;
+   assign mem_rstrb = (state == fetch_instr || (state == execute & is_LOAD));
+   assign mem_wmask = {4{(state == execute) & is_STORE}} & store_mask;
 
-   /* verilator lint_off WIDTH */
-   assign mem_addr = (state == WAIT_INSTR || state == FETCH_INSTR) ?
-		     PC : loadstore_addr ;
-   /* verilator lint_on WIDTH */
-   
-   assign mem_rstrb = (state == FETCH_INSTR || (state == EXECUTE & isLoad));
-   assign mem_wmask = {4{(state == EXECUTE) & isStore}} & STORE_wmask;
+  // BENCH TEST CODE
+  // `ifdef BENCH
+  //   always @(*)
+  //     if(state == fetch_reg) begin
+  //       $display("");
+  //       $display("pc=%0d",pc);
+  //       // $display("dec_bits=%b",dec_bits);
+  //       // $display("instruction =%b\n",instr);
+  //
+  //       casex (dec_bits)
+  //         `is_lui   : $write("lUI");
+  //         `is_auipc : $write("AUIPC");
+  //         `is_jal   : $write("JAL");
+  //         `is_jalr  : $write("JALR");
+  //         `is_beq   : $write("BEQ");
+  //         `is_bne   : $write("BNE");
+  //         `is_blt   : $write("BLT");
+  //         `is_bge   : $write("BGE");
+  //         `is_bltu  : $write("BLTU");
+  //         `is_bgeu  : $write("BGEU");
+  //         `is_load  : $write("LOAD");
+  //         `is_addi  : $write("ADDI");
+  //         `is_slti  : $write("SLTI");
+  //         `is_sltiu : $write("SLTIU");
+  //         `is_xori  : $write("XORI");
+  //         `is_ori   : $write("ORI");
+  //         `is_andi  : $write("ANDI");
+  //         `is_slli  : $write("SLLI");
+  //         `is_srli  : $write("SRLI");
+  //         `is_srai  : $write("SRAI");
+  //         `is_add   : $write("ADD");
+  //         `is_sub   : $write("SUB");
+  //         `is_sll   : $write("SLL");
+  //         `is_slt   : $write("SLT");
+  //         `is_sltu  : $write("SLTU");
+  //         `is_xor   : $write("XOR");
+  //         `is_srl   : $write("SRL");
+  //         `is_sra   : $write("SRA");
+  //         `is_or    : $write("OR");
+  //         `is_and   : $write("AND");
+  //         `is_fence    : $write("FENCE");
+  //         `is_ecall    : $write("ECALL");
+  //         `is_ebreak   : $write("EBREAK");
+  //       endcase
+  //
+  //       case (1'b1)
+  //         is_OP: $display(
+  //           " rd=%d rs1=%d rs2=%d ",
+  //           rd, rs1, rs2 );
+  //
+  //         is_OPIM: $display(
+  //         	" rd=%d rs1=%d imm=%0d ",
+  //           rd, rs1, I_imm);
+  //       endcase
+  //
+  //       if(is_SYSTEM) begin
+  //    	    $finish();
+  //    	  end
+  //     end
+  // `endif
 
-endmodule
-
+endmodule //processor
 
 module SOC (
     input               CLK,        // system clock
