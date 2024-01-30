@@ -1,6 +1,6 @@
 current_dir := ${CURDIR}
 TOP := SOC
-SOURCES := ${current_dir}/femtoRV.v
+SOURCES := ${current_dir}/RTL/femtoRV.v
 
 #picocom variables
 PICO_DEVICE=/dev/ttyUSB1   # replace by the terminal used by your device
@@ -30,7 +30,7 @@ endif
 include ${current_dir}/common.mk
 
 bench:
-	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 -I ./includes/ bench_iverilog.v ${SOURCES}
+	iverilog -DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10 -I bench_iverilog.v ${SOURCES}
 	vvp a.out
 
 terminal:download
