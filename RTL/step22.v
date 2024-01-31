@@ -353,9 +353,9 @@ module SOC (
    
    wire [31:0] RAM_rdata;
    wire [29:0] mem_wordaddr = mem_addr[31:2];
-   wire isSPIFlash  = mem_addr[25];      
-   wire isIO        = mem_addr[25:24] == 2'b01;
-   wire isRAM = !(mem_addr[25] | mem_addr[24]);
+   wire isSPIFlash  = mem_addr[23];      
+   wire isIO        = mem_addr[23:22] == 2'b01;
+   wire isRAM = !(mem_addr[23] | mem_addr[22]);
    wire mem_wstrb = |mem_wmask;
    
    Memory RAM(
@@ -371,7 +371,7 @@ module SOC (
    wire SPIFlash_rbusy;
    MappedSPIFlash SPIFlash(
       .clk(clk),
-      .word_address(mem_wordaddr[21:0]),
+      .word_address(mem_wordaddr[19:0]),
       .rdata(SPIFlash_rdata),
       .rstrb(isSPIFlash & mem_rstrb),
       .rbusy(SPIFlash_rbusy),

@@ -1,4 +1,4 @@
-.equ IO_BASE, 0x1000000  
+.equ IO_BASE, 0x400000  
 .section .text
 .globl start
 start:

@@ -1,6 +1,6 @@
 # Base address of memory-mapped IO,
 # Loaded into gp at startup
-.equ IO_BASE, 0x1000000  
+.equ IO_BASE, 0x400000  
 
 # IO-reg offsets. To read or write one of them,
 # use IO_XXX(gp)

@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define SPI_FLASH_BASE ((uint32_t*)(1 << 24))
+#define SPI_FLASH_BASE ((uint32_t*)(1 << 23))
 
 int main() {
    for(;;) {
