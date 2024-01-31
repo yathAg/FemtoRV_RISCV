@@ -1,6 +1,6 @@
 current_dir := ${CURDIR}
 TOP := SOC
-SOURCES := ${current_dir}/RTL/femtoRV.v
+SOURCES := ${current_dir}/step20.v
 
 #picocom variables
 PICO_DEVICE=/dev/ttyUSB1   # replace by the terminal used by your device

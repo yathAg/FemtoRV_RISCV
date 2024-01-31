@@ -4,8 +4,8 @@
  */
 
 `default_nettype none
-`include "includes/clockworks.v"
-`include "includes/emitter_uart.v"
+`include "clockworks.v"
+`include "emitter_uart.v"
 
 module Memory (
    input             clk,

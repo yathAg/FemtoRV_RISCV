@@ -1,7 +1,7 @@
-`include "includes/clockworks.v"
-`include "includes/emitter_uart.v"
-`include "includes/defines.v"
-`include "includes/spi_flash.v"
+`include "clockworks.v"
+`include "emitter_uart.v"
+`include "defines.v"
+`include "spi_flash.v"
 //checkpoint
 module Memory (
   input              clk,

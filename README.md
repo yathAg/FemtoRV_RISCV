@@ -20,35 +20,20 @@ The project is implemented on the ARTIX7 35T FPGA using the F4PGA toolchain.
 
 *F4PGA is an end-to-end FPGA synthesis toolchain, because of that it provides all the necessary tools to convert input Hardware Description Language (HDL) sources into a final bitstream*
 
-![F4PGA Toolchain design flow](resources/toolchain-flow.svg)
+![F4PGA Toolchain design flow](Docs/toolchain-flow.svg)
 
 - [F4PGA Home Page](https://f4pga.readthedocs.io/en/latest/getting-started.html)
 - [Installation guide](https://f4pga-examples.readthedocs.io/en/latest/getting.html#getting)
 - [Basic Tutorial](https://f4pga-examples.readthedocs.io/en/latest/personal-designs.html)
 
-### openFPGALoader
+| Tool name           | Description                                                                                                      | Link                                                      |
+|---------------------|------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------|
+| Icarus Verilog      | Icarus Verilog is a Verilog simulation and synthesis tool. It operates as a compiler, compiling source code written in Verilog (IEEE-1364) into some target format. For batch simulation, the compiler can generate an intermediate form called vvp assembly | [Icarus Verilog](http://iverilog.icarus.com/)              |
+| Verilator           | Verilator is a free and open-source software tool which converts Verilog to a cycle-accurate behavioral model in C++ or SystemC. | [Verilator](https://www.veripool.org/verilator/)          |
+| Picocom             | picocom is a minimal dumb-terminal emulation program                                                            | [Picocom](https://linux.die.net/man/8/picocom)            |
+| Riscv GNU toolchain | RISC-V C and C++ cross-compiler                                                                                 | [Riscv GNU toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain) |
+     |
 
-*Universal utility for programming FPGAs. Compatible with many boards, cables and FPGA from major manufacturers*
-
-[https://github.com/trabucayre/openFPGALoader](https://github.com/trabucayre/openFPGALoader)
-
-### Icarus Verilog
-
-*Icarus Verilog is a Verilog simulation and synthesis tool. It operates as a compiler, compiling source code written in Verilog (IEEE-1364) into some target format. For batch simulation, the compiler can generate an intermediate form called vvp assembly*
-
-[http://iverilog.icarus.com/](http://iverilog.icarus.com/)
-
-### Verilatior
-
-*Verilator is a free and open-source software tool which converts Verilog to a cycle-accurate behavioral model in C++ or SystemC.*
-
-[https://www.veripool.org/verilator/](https://www.veripool.org/verilator/)
-
-### Picocom
-
-*picocom is a minimal dumb-terminal emulation program*
-
-[https://linux.die.net/man/8/picocom](https://linux.die.net/man/8/picocom)
 
 ## Activate env
 

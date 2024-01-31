@@ -33,10 +33,10 @@ RVRANLIB= riscv64-unknown-elf-ranlib
 
 %.hex: %.elf 
 	./firmware_words $< -ram $(RAM_SIZE) -max_addr $(RAM_SIZE) -out $@
-	cp $@ ../firmware.hex
-	mkdir -p ../obj_dir
-	cp $@ ../obj_dir/firmware.hex
-	echo $@ > ../firmware.txt
+	cp $@ ../RTL/firmware.hex
+	mkdir -p ../RTL/obj_dir
+	cp $@ ../RTL/obj_dir/firmware.hex
+	echo $@ > ../RTL/firmware.txt
 
 clean:
 	rm *.bram.hex
