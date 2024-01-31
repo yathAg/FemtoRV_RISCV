@@ -1,7 +1,12 @@
-`include "includes/clockworks.v"
-`include "includes/emitter_uart.v"
-`include "includes/defines.v"
-`include "includes/spi_flash.v"
+/**
+ * Step 22: Creating a RISC-V processor
+ * Mapped SPI flash
+ */
+
+`default_nettype none
+`include "clockworks.v"
+`include "emitter_uart.v"
+`include "spi_flash.v"
 
 module Memory (
    input             clk,
@@ -43,9 +48,9 @@ module Processor (
 );
 
    // Internal width for addresses.
-   //localparam ADDR_WIDTH=24;
+   localparam ADDR_WIDTH=32;
    
-   reg [31:0] PC=0; // program counter
+   reg [ADDR_WIDTH:0] PC=0; // program counter
    reg [31:2] instr;        // current instruction
 
    // See the table P. 105 in RISC-V manual
@@ -180,17 +185,17 @@ module Processor (
    // some RISC-V compliance tests because one can is supposed to use 
    // it to generate arbitrary 32-bit values (and not only addresses).
    
-   wire [31:0] PCplusImm = PC + ( instr[3] ? Jimm[31:0] :
+   wire [ADDR_WIDTH-1:0] PCplusImm = PC + ( instr[3] ? Jimm[31:0] :
 					    instr[4] ? Uimm[31:0] :
 				            Bimm[31:0] );
-   wire [31:0] PCplus4 = PC+4;
+   wire [ADDR_WIDTH-1:0] PCplus4 = PC+4;
    
 
-   wire [31:0] nextPC = ((isBranch && takeBranch) || isJAL) ? PCplusImm   :
+   wire [ADDR_WIDTH-1:0] nextPC = ((isBranch && takeBranch) || isJAL) ? PCplusImm   :
 	                                  isJALR   ? {aluPlus[31:1],1'b0} :
 	                                             PCplus4;
 
-   wire [31:0] loadstore_addr = rs1 + (isStore ? Simm : Iimm);
+   wire [ADDR_WIDTH-1:0] loadstore_addr = rs1 + (isStore ? Simm : Iimm);
 
 
    // register write back
@@ -315,7 +320,7 @@ endmodule
 
 module SOC (
     input 	     CLK, // system clock 
-    input 	     RESET,// resetn button
+    input 	     RESET,// reset button
     output reg [4:0] LEDS, // system LEDs
     input 	     RXD, // UART receive
     output 	     TXD, // UART transmit
@@ -422,7 +427,7 @@ module SOC (
    end
 `endif   
    
-   // Gearbox and resetn circuitry.
+   // Gearbox and reset circuitry.
    Clockworks CW(
      .CLK(CLK),
      .RESET(RESET),
