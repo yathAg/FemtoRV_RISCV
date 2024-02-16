@@ -17,3 +17,17 @@
 ## PMOD SF3 Refernce
 
 ![Datasheet](https://media-www.micron.com/-/media/client/global/documents/products/data-sheet/nor-flash/serial-nor/n25q/n25q_256mb_3v.pdf?rev=cd8f3bb53a294ad897ff924f360be390)
+
+## OpenFPGA Loader 
+
+.bit, .bin, and .mcs are supported for FLASH.
+
+
+
+By default the data is written to a volatile flash. This is erased on power cycle.
+
+Adding the -f flag to open FPGA loader, wries it to the external onboard SPIFlash. 
+
+this allowes it to retai the code even aafter a power cycle.
+
+F4PGA loader installs a deprecated version of openFPGAloder...using sudo uses the new version.

@@ -86,7 +86,7 @@ download: ${BOARD_BUILDDIR}/${TOP}.bit
 	  echo "The commands needed to download the bitstreams to the board type specified are not currently supported by the F4PGA makefiles. \
     Please see documentation for more information."; \
 	fi
-	openFPGALoader -b ${OFL_BOARD} ${BOARD_BUILDDIR}/${TOP}.bit
+	sudo openFPGALoader -b ${OFL_BOARD} -f ${BOARD_BUILDDIR}/${TOP}.bit
 
 clean:
 	rm -rf ${BUILDDIR}
