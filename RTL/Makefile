@@ -56,4 +56,4 @@ verilate: build_verilate
 	./obj_dir/VSOC
 
 download_flash:
-	sudo openFPGALoader -b arty_a7_35t -o 3145728 -f scene1.dat
+	openFPGALoader -b arty_a7_35t -o 3145728 -f scene1.dat
